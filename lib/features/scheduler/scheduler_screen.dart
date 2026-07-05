@@ -53,17 +53,24 @@ class _SchedulerScreenState extends ConsumerState<SchedulerScreen> with SingleTi
           children: [
             const Icon(Icons.auto_awesome_rounded, color: Colors.blueAccent),
             const SizedBox(width: 8),
-            const Text('Smart Scheduler & Automation'),
+            Expanded(
+              child: Text(
+                isDesktop ? 'Smart Scheduler & Automation' : 'Scheduler',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         actions: [
           Row(
             children: [
-              Text(
-                'Automation Engine',
-                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(width: 8),
+              if (isDesktop) ...[
+                Text(
+                  'Automation Engine',
+                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 8),
+              ],
               Switch(
                 value: autoStatus.enabled,
                 onChanged: (val) {
@@ -82,6 +89,7 @@ class _SchedulerScreenState extends ConsumerState<SchedulerScreen> with SingleTi
         ],
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
           tabs: const [
             Tab(icon: Icon(Icons.schedule_rounded), text: 'Schedules'),
             Tab(icon: Icon(Icons.calendar_month_rounded), text: 'Timeline & Calendar'),
@@ -151,6 +159,150 @@ class _SchedulerScreenState extends ConsumerState<SchedulerScreen> with SingleTi
       itemBuilder: (context, index) {
         final schedule = schedules[index];
 
+        final scheduleDetails = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    schedule.name,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: schedule.enabled ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    schedule.scheduleType,
+                    style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Folder info
+            FutureBuilder<List<BackupFolder>>(
+              future: ref.read(backupFolderRepositoryProvider).getAllFolders(),
+              builder: (context, snapshot) {
+                final folder = snapshot.data?.where((f) => f.id == schedule.folderId).firstOrNull;
+                return Row(
+                  children: [
+                    Icon(Icons.folder_open_rounded, size: 16, color: theme.colorScheme.primary),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        folder != null ? 'Folder: ${folder.name} (${folder.sourcePath})' : 'Folder missing',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+            // Triggers
+            if (schedule.triggerTypes.isNotEmpty) ...[
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: schedule.triggerTypes.map((t) {
+                  return Chip(
+                    labelPadding: EdgeInsets.zero,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    visualDensity: VisualDensity.compact,
+                    avatar: const Icon(Icons.bolt_rounded, size: 12),
+                    label: Text(t, style: const TextStyle(fontSize: 10)),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 8),
+            ],
+            // Run history helper
+            Wrap(
+              spacing: 16,
+              runSpacing: 4,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.history_rounded, size: 14, color: theme.colorScheme.outline),
+                    const SizedBox(width: 4),
+                    Text(
+                      schedule.lastRunTime != null
+                          ? 'Last ran: ${DateFormat('yyyy-MM-dd HH:mm').format(schedule.lastRunTime!)}'
+                          : 'Never ran',
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                    ),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.next_plan_rounded, size: 14, color: theme.colorScheme.outline),
+                    const SizedBox(width: 4),
+                    Text(
+                      schedule.nextRunTime != null
+                          ? 'Next run: ${DateFormat('yyyy-MM-dd HH:mm').format(schedule.nextRunTime!)}'
+                          : 'Next run: N/A',
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        );
+
+        final scheduleControls = Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Switch(
+              value: schedule.enabled,
+              onChanged: (val) => controller.toggleSchedule(schedule.id, val),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.play_arrow_rounded, color: Colors.green),
+                  tooltip: 'Run Now',
+                  onPressed: () async {
+                    final ok = await controller.triggerBackupManually(schedule);
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(ok ? 'Backup job queued in Priority Queue.' : 'Failed to trigger backup.'),
+                      ),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit_rounded),
+                  tooltip: 'Edit',
+                  onPressed: () => _showScheduleEditor(context, schedule),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_rounded, color: Colors.redAccent),
+                  tooltip: 'Delete',
+                  onPressed: () => _showDeleteConfirmation(context, controller, schedule.id),
+                ),
+              ],
+            ),
+          ],
+        );
+
         return Card(
           margin: const EdgeInsets.only(bottom: 16),
           shape: RoundedRectangleBorder(
@@ -162,132 +314,62 @@ class _SchedulerScreenState extends ConsumerState<SchedulerScreen> with SingleTi
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            child: isDesktop
+                ? Row(
                     children: [
+                      Expanded(child: scheduleDetails),
+                      const SizedBox(width: 16),
+                      scheduleControls,
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      scheduleDetails,
+                      const SizedBox(height: 12),
+                      const Divider(height: 1),
+                      const SizedBox(height: 8),
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            schedule.name,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: schedule.enabled ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                            ),
+                            'Status: ${schedule.enabled ? "Active" : "Paused"}',
+                            style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
                           ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.secondaryContainer,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              schedule.scheduleType,
-                              style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      // Folder info
-                      FutureBuilder<List<BackupFolder>>(
-                        future: ref.read(backupFolderRepositoryProvider).getAllFolders(),
-                        builder: (context, snapshot) {
-                          final folder = snapshot.data?.where((f) => f.id == schedule.folderId).firstOrNull;
-                          return Row(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.folder_open_rounded, size: 16, color: theme.colorScheme.primary),
-                              const SizedBox(width: 4),
-                              Text(
-                                folder != null ? 'Folder: ${folder.name} (${folder.sourcePath})' : 'Folder missing',
-                                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                              Switch(
+                                value: schedule.enabled,
+                                onChanged: (val) => controller.toggleSchedule(schedule.id, val),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(Icons.play_arrow_rounded, color: Colors.green),
+                                onPressed: () async {
+                                  final ok = await controller.triggerBackupManually(schedule);
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(ok ? 'Backup job queued.' : 'Failed to trigger.'),
+                                    ),
+                                  );
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.edit_rounded),
+                                onPressed: () => _showScheduleEditor(context, schedule),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_rounded, color: Colors.redAccent),
+                                onPressed: () => _showDeleteConfirmation(context, controller, schedule.id),
                               ),
                             ],
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      // Triggers
-                      if (schedule.triggerTypes.isNotEmpty)
-                        Wrap(
-                          spacing: 8,
-                          children: schedule.triggerTypes.map((t) {
-                            return Chip(
-                              labelPadding: EdgeInsets.zero,
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                              visualDensity: VisualDensity.compact,
-                              avatar: const Icon(Icons.bolt_rounded, size: 12),
-                              label: Text(t, style: const TextStyle(fontSize: 10)),
-                            );
-                          }).toList(),
-                        ),
-                      const SizedBox(height: 8),
-                      // Run history helper
-                      Row(
-                        children: [
-                          Icon(Icons.history_rounded, size: 14, color: theme.colorScheme.outline),
-                          const SizedBox(width: 4),
-                          Text(
-                            schedule.lastRunTime != null
-                                ? 'Last ran: ${DateFormat('yyyy-MM-dd HH:mm').format(schedule.lastRunTime!)}'
-                                : 'Never ran',
-                            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
-                          ),
-                          const SizedBox(width: 16),
-                          Icon(Icons.next_plan_rounded, size: 14, color: theme.colorScheme.outline),
-                          const SizedBox(width: 4),
-                          Text(
-                            schedule.nextRunTime != null
-                                ? 'Next run: ${DateFormat('yyyy-MM-dd HH:mm').format(schedule.nextRunTime!)}'
-                                : 'Next run: N/A',
-                            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
                           ),
                         ],
                       ),
                     ],
                   ),
-                ),
-                // Control buttons
-                Column(
-                  children: [
-                    Switch(
-                      value: schedule.enabled,
-                      onChanged: (val) => controller.toggleSchedule(schedule.id, val),
-                    ),
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.play_arrow_rounded, color: Colors.green),
-                          tooltip: 'Run Now',
-                          onPressed: () async {
-                            final ok = await controller.triggerBackupManually(schedule);
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(ok ? 'Backup job queued in Priority Queue.' : 'Failed to trigger backup.'),
-                              ),
-                            );
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.edit_rounded),
-                          tooltip: 'Edit',
-                          onPressed: () => _showScheduleEditor(context, schedule),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_rounded, color: Colors.redAccent),
-                          tooltip: 'Delete',
-                          onPressed: () => _showDeleteConfirmation(context, controller, schedule.id),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
           ),
         );
       },

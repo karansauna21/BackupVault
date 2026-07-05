@@ -276,16 +276,49 @@ class _FolderManagerScreenState extends ConsumerState<FolderManagerScreen> {
                     );
                   }
 
+                  if (isMobile) {
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      itemCount: folders.length,
+                      itemBuilder: (context, index) {
+                        final folder = folders[index];
+                        final stats = ref.watch(folderStatsProvider(folder.id)).value ?? FolderStats(folderId: folder.id);
+                        final isSelected = selectedIds.contains(folder.id);
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: FolderCard(
+                            folder: folder,
+                            stats: stats,
+                            isSelected: isSelected,
+                            onSelectChanged: (val) {
+                              final current = Set<int>.from(selectedIds);
+                              if (val == true) {
+                                current.add(folder.id);
+                              } else {
+                                current.remove(folder.id);
+                              }
+                              ref.read(selectedFolderIdsProvider.notifier).setSelected(current);
+                            },
+                            onEdit: () => _showEditFolderDialog(context, controller, folder, stats.rules),
+                            onDelete: () => _showDeleteConfirmation(context, controller, folder),
+                            onRescan: () => controller.scanFolder(folder.id),
+                          ),
+                        );
+                      },
+                    );
+                  }
+
                   return GridView.builder(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isMobile ? 12 : 24,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
                       vertical: 8,
                     ),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: isDesktop ? 2 : 1,
                       crossAxisSpacing: 16,
                       mainAxisSpacing: 16,
-                      mainAxisExtent: isMobile ? 245 : 220,
+                      mainAxisExtent: 220,
                     ),
                     itemCount: folders.length,
                     itemBuilder: (context, index) {
