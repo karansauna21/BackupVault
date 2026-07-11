@@ -3632,6 +3632,584 @@ class SearchHistoriesCompanion extends UpdateCompanion<SearchHistory> {
   }
 }
 
+class $PairedDevicesTable extends PairedDevices
+    with TableInfo<$PairedDevicesTable, PairedDevice> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PairedDevicesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _deviceUuidMeta = const VerificationMeta(
+    'deviceUuid',
+  );
+  @override
+  late final GeneratedColumn<String> deviceUuid = GeneratedColumn<String>(
+    'device_uuid',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 255,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deviceNameMeta = const VerificationMeta(
+    'deviceName',
+  );
+  @override
+  late final GeneratedColumn<String> deviceName = GeneratedColumn<String>(
+    'device_name',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 255,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _platformMeta = const VerificationMeta(
+    'platform',
+  );
+  @override
+  late final GeneratedColumn<String> platform = GeneratedColumn<String>(
+    'platform',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _osVersionMeta = const VerificationMeta(
+    'osVersion',
+  );
+  @override
+  late final GeneratedColumn<String> osVersion = GeneratedColumn<String>(
+    'os_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _appVersionMeta = const VerificationMeta(
+    'appVersion',
+  );
+  @override
+  late final GeneratedColumn<String> appVersion = GeneratedColumn<String>(
+    'app_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deviceModelMeta = const VerificationMeta(
+    'deviceModel',
+  );
+  @override
+  late final GeneratedColumn<String> deviceModel = GeneratedColumn<String>(
+    'device_model',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _lastSeenMeta = const VerificationMeta(
+    'lastSeen',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastSeen = GeneratedColumn<DateTime>(
+    'last_seen',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    deviceUuid,
+    deviceName,
+    platform,
+    osVersion,
+    appVersion,
+    deviceModel,
+    createdAt,
+    lastSeen,
+    status,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'paired_devices';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PairedDevice> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('device_uuid')) {
+      context.handle(
+        _deviceUuidMeta,
+        deviceUuid.isAcceptableOrUnknown(data['device_uuid']!, _deviceUuidMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_deviceUuidMeta);
+    }
+    if (data.containsKey('device_name')) {
+      context.handle(
+        _deviceNameMeta,
+        deviceName.isAcceptableOrUnknown(data['device_name']!, _deviceNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_deviceNameMeta);
+    }
+    if (data.containsKey('platform')) {
+      context.handle(
+        _platformMeta,
+        platform.isAcceptableOrUnknown(data['platform']!, _platformMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_platformMeta);
+    }
+    if (data.containsKey('os_version')) {
+      context.handle(
+        _osVersionMeta,
+        osVersion.isAcceptableOrUnknown(data['os_version']!, _osVersionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_osVersionMeta);
+    }
+    if (data.containsKey('app_version')) {
+      context.handle(
+        _appVersionMeta,
+        appVersion.isAcceptableOrUnknown(data['app_version']!, _appVersionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_appVersionMeta);
+    }
+    if (data.containsKey('device_model')) {
+      context.handle(
+        _deviceModelMeta,
+        deviceModel.isAcceptableOrUnknown(
+          data['device_model']!,
+          _deviceModelMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_deviceModelMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('last_seen')) {
+      context.handle(
+        _lastSeenMeta,
+        lastSeen.isAcceptableOrUnknown(data['last_seen']!, _lastSeenMeta),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {deviceUuid};
+  @override
+  PairedDevice map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PairedDevice(
+      deviceUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_uuid'],
+      )!,
+      deviceName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_name'],
+      )!,
+      platform: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}platform'],
+      )!,
+      osVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}os_version'],
+      )!,
+      appVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}app_version'],
+      )!,
+      deviceModel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_model'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      lastSeen: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_seen'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+    );
+  }
+
+  @override
+  $PairedDevicesTable createAlias(String alias) {
+    return $PairedDevicesTable(attachedDatabase, alias);
+  }
+}
+
+class PairedDevice extends DataClass implements Insertable<PairedDevice> {
+  final String deviceUuid;
+  final String deviceName;
+  final String platform;
+  final String osVersion;
+  final String appVersion;
+  final String deviceModel;
+  final DateTime createdAt;
+  final DateTime lastSeen;
+  final String status;
+  const PairedDevice({
+    required this.deviceUuid,
+    required this.deviceName,
+    required this.platform,
+    required this.osVersion,
+    required this.appVersion,
+    required this.deviceModel,
+    required this.createdAt,
+    required this.lastSeen,
+    required this.status,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['device_uuid'] = Variable<String>(deviceUuid);
+    map['device_name'] = Variable<String>(deviceName);
+    map['platform'] = Variable<String>(platform);
+    map['os_version'] = Variable<String>(osVersion);
+    map['app_version'] = Variable<String>(appVersion);
+    map['device_model'] = Variable<String>(deviceModel);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['last_seen'] = Variable<DateTime>(lastSeen);
+    map['status'] = Variable<String>(status);
+    return map;
+  }
+
+  PairedDevicesCompanion toCompanion(bool nullToAbsent) {
+    return PairedDevicesCompanion(
+      deviceUuid: Value(deviceUuid),
+      deviceName: Value(deviceName),
+      platform: Value(platform),
+      osVersion: Value(osVersion),
+      appVersion: Value(appVersion),
+      deviceModel: Value(deviceModel),
+      createdAt: Value(createdAt),
+      lastSeen: Value(lastSeen),
+      status: Value(status),
+    );
+  }
+
+  factory PairedDevice.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PairedDevice(
+      deviceUuid: serializer.fromJson<String>(json['deviceUuid']),
+      deviceName: serializer.fromJson<String>(json['deviceName']),
+      platform: serializer.fromJson<String>(json['platform']),
+      osVersion: serializer.fromJson<String>(json['osVersion']),
+      appVersion: serializer.fromJson<String>(json['appVersion']),
+      deviceModel: serializer.fromJson<String>(json['deviceModel']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      lastSeen: serializer.fromJson<DateTime>(json['lastSeen']),
+      status: serializer.fromJson<String>(json['status']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'deviceUuid': serializer.toJson<String>(deviceUuid),
+      'deviceName': serializer.toJson<String>(deviceName),
+      'platform': serializer.toJson<String>(platform),
+      'osVersion': serializer.toJson<String>(osVersion),
+      'appVersion': serializer.toJson<String>(appVersion),
+      'deviceModel': serializer.toJson<String>(deviceModel),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'lastSeen': serializer.toJson<DateTime>(lastSeen),
+      'status': serializer.toJson<String>(status),
+    };
+  }
+
+  PairedDevice copyWith({
+    String? deviceUuid,
+    String? deviceName,
+    String? platform,
+    String? osVersion,
+    String? appVersion,
+    String? deviceModel,
+    DateTime? createdAt,
+    DateTime? lastSeen,
+    String? status,
+  }) => PairedDevice(
+    deviceUuid: deviceUuid ?? this.deviceUuid,
+    deviceName: deviceName ?? this.deviceName,
+    platform: platform ?? this.platform,
+    osVersion: osVersion ?? this.osVersion,
+    appVersion: appVersion ?? this.appVersion,
+    deviceModel: deviceModel ?? this.deviceModel,
+    createdAt: createdAt ?? this.createdAt,
+    lastSeen: lastSeen ?? this.lastSeen,
+    status: status ?? this.status,
+  );
+  PairedDevice copyWithCompanion(PairedDevicesCompanion data) {
+    return PairedDevice(
+      deviceUuid: data.deviceUuid.present
+          ? data.deviceUuid.value
+          : this.deviceUuid,
+      deviceName: data.deviceName.present
+          ? data.deviceName.value
+          : this.deviceName,
+      platform: data.platform.present ? data.platform.value : this.platform,
+      osVersion: data.osVersion.present ? data.osVersion.value : this.osVersion,
+      appVersion: data.appVersion.present
+          ? data.appVersion.value
+          : this.appVersion,
+      deviceModel: data.deviceModel.present
+          ? data.deviceModel.value
+          : this.deviceModel,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      lastSeen: data.lastSeen.present ? data.lastSeen.value : this.lastSeen,
+      status: data.status.present ? data.status.value : this.status,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PairedDevice(')
+          ..write('deviceUuid: $deviceUuid, ')
+          ..write('deviceName: $deviceName, ')
+          ..write('platform: $platform, ')
+          ..write('osVersion: $osVersion, ')
+          ..write('appVersion: $appVersion, ')
+          ..write('deviceModel: $deviceModel, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastSeen: $lastSeen, ')
+          ..write('status: $status')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    deviceUuid,
+    deviceName,
+    platform,
+    osVersion,
+    appVersion,
+    deviceModel,
+    createdAt,
+    lastSeen,
+    status,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PairedDevice &&
+          other.deviceUuid == this.deviceUuid &&
+          other.deviceName == this.deviceName &&
+          other.platform == this.platform &&
+          other.osVersion == this.osVersion &&
+          other.appVersion == this.appVersion &&
+          other.deviceModel == this.deviceModel &&
+          other.createdAt == this.createdAt &&
+          other.lastSeen == this.lastSeen &&
+          other.status == this.status);
+}
+
+class PairedDevicesCompanion extends UpdateCompanion<PairedDevice> {
+  final Value<String> deviceUuid;
+  final Value<String> deviceName;
+  final Value<String> platform;
+  final Value<String> osVersion;
+  final Value<String> appVersion;
+  final Value<String> deviceModel;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> lastSeen;
+  final Value<String> status;
+  final Value<int> rowid;
+  const PairedDevicesCompanion({
+    this.deviceUuid = const Value.absent(),
+    this.deviceName = const Value.absent(),
+    this.platform = const Value.absent(),
+    this.osVersion = const Value.absent(),
+    this.appVersion = const Value.absent(),
+    this.deviceModel = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.lastSeen = const Value.absent(),
+    this.status = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PairedDevicesCompanion.insert({
+    required String deviceUuid,
+    required String deviceName,
+    required String platform,
+    required String osVersion,
+    required String appVersion,
+    required String deviceModel,
+    this.createdAt = const Value.absent(),
+    this.lastSeen = const Value.absent(),
+    required String status,
+    this.rowid = const Value.absent(),
+  }) : deviceUuid = Value(deviceUuid),
+       deviceName = Value(deviceName),
+       platform = Value(platform),
+       osVersion = Value(osVersion),
+       appVersion = Value(appVersion),
+       deviceModel = Value(deviceModel),
+       status = Value(status);
+  static Insertable<PairedDevice> custom({
+    Expression<String>? deviceUuid,
+    Expression<String>? deviceName,
+    Expression<String>? platform,
+    Expression<String>? osVersion,
+    Expression<String>? appVersion,
+    Expression<String>? deviceModel,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? lastSeen,
+    Expression<String>? status,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (deviceUuid != null) 'device_uuid': deviceUuid,
+      if (deviceName != null) 'device_name': deviceName,
+      if (platform != null) 'platform': platform,
+      if (osVersion != null) 'os_version': osVersion,
+      if (appVersion != null) 'app_version': appVersion,
+      if (deviceModel != null) 'device_model': deviceModel,
+      if (createdAt != null) 'created_at': createdAt,
+      if (lastSeen != null) 'last_seen': lastSeen,
+      if (status != null) 'status': status,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PairedDevicesCompanion copyWith({
+    Value<String>? deviceUuid,
+    Value<String>? deviceName,
+    Value<String>? platform,
+    Value<String>? osVersion,
+    Value<String>? appVersion,
+    Value<String>? deviceModel,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? lastSeen,
+    Value<String>? status,
+    Value<int>? rowid,
+  }) {
+    return PairedDevicesCompanion(
+      deviceUuid: deviceUuid ?? this.deviceUuid,
+      deviceName: deviceName ?? this.deviceName,
+      platform: platform ?? this.platform,
+      osVersion: osVersion ?? this.osVersion,
+      appVersion: appVersion ?? this.appVersion,
+      deviceModel: deviceModel ?? this.deviceModel,
+      createdAt: createdAt ?? this.createdAt,
+      lastSeen: lastSeen ?? this.lastSeen,
+      status: status ?? this.status,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (deviceUuid.present) {
+      map['device_uuid'] = Variable<String>(deviceUuid.value);
+    }
+    if (deviceName.present) {
+      map['device_name'] = Variable<String>(deviceName.value);
+    }
+    if (platform.present) {
+      map['platform'] = Variable<String>(platform.value);
+    }
+    if (osVersion.present) {
+      map['os_version'] = Variable<String>(osVersion.value);
+    }
+    if (appVersion.present) {
+      map['app_version'] = Variable<String>(appVersion.value);
+    }
+    if (deviceModel.present) {
+      map['device_model'] = Variable<String>(deviceModel.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (lastSeen.present) {
+      map['last_seen'] = Variable<DateTime>(lastSeen.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PairedDevicesCompanion(')
+          ..write('deviceUuid: $deviceUuid, ')
+          ..write('deviceName: $deviceName, ')
+          ..write('platform: $platform, ')
+          ..write('osVersion: $osVersion, ')
+          ..write('appVersion: $appVersion, ')
+          ..write('deviceModel: $deviceModel, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastSeen: $lastSeen, ')
+          ..write('status: $status, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3644,6 +4222,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SearchHistoriesTable searchHistories = $SearchHistoriesTable(
     this,
   );
+  late final $PairedDevicesTable pairedDevices = $PairedDevicesTable(this);
   late final Index idxBackupFilesName = Index(
     'idx_backup_files_name',
     'CREATE INDEX idx_backup_files_name ON backup_files (file_name)',
@@ -3666,6 +4245,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final SearchHistoriesDao searchHistoriesDao = SearchHistoriesDao(
     this as AppDatabase,
   );
+  late final PairedDevicesDao pairedDevicesDao = PairedDevicesDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3678,6 +4260,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     settings,
     backupHistory,
     searchHistories,
+    pairedDevices,
     idxBackupFilesName,
     idxBackupFilesSha,
   ];
@@ -6175,6 +6758,290 @@ typedef $$SearchHistoriesTableProcessedTableManager =
       SearchHistory,
       PrefetchHooks Function()
     >;
+typedef $$PairedDevicesTableCreateCompanionBuilder =
+    PairedDevicesCompanion Function({
+      required String deviceUuid,
+      required String deviceName,
+      required String platform,
+      required String osVersion,
+      required String appVersion,
+      required String deviceModel,
+      Value<DateTime> createdAt,
+      Value<DateTime> lastSeen,
+      required String status,
+      Value<int> rowid,
+    });
+typedef $$PairedDevicesTableUpdateCompanionBuilder =
+    PairedDevicesCompanion Function({
+      Value<String> deviceUuid,
+      Value<String> deviceName,
+      Value<String> platform,
+      Value<String> osVersion,
+      Value<String> appVersion,
+      Value<String> deviceModel,
+      Value<DateTime> createdAt,
+      Value<DateTime> lastSeen,
+      Value<String> status,
+      Value<int> rowid,
+    });
+
+class $$PairedDevicesTableFilterComposer
+    extends Composer<_$AppDatabase, $PairedDevicesTable> {
+  $$PairedDevicesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get deviceUuid => $composableBuilder(
+    column: $table.deviceUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceName => $composableBuilder(
+    column: $table.deviceName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get platform => $composableBuilder(
+    column: $table.platform,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get osVersion => $composableBuilder(
+    column: $table.osVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get appVersion => $composableBuilder(
+    column: $table.appVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceModel => $composableBuilder(
+    column: $table.deviceModel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastSeen => $composableBuilder(
+    column: $table.lastSeen,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PairedDevicesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PairedDevicesTable> {
+  $$PairedDevicesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get deviceUuid => $composableBuilder(
+    column: $table.deviceUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceName => $composableBuilder(
+    column: $table.deviceName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get platform => $composableBuilder(
+    column: $table.platform,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get osVersion => $composableBuilder(
+    column: $table.osVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get appVersion => $composableBuilder(
+    column: $table.appVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceModel => $composableBuilder(
+    column: $table.deviceModel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastSeen => $composableBuilder(
+    column: $table.lastSeen,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PairedDevicesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PairedDevicesTable> {
+  $$PairedDevicesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get deviceUuid => $composableBuilder(
+    column: $table.deviceUuid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get deviceName => $composableBuilder(
+    column: $table.deviceName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get platform =>
+      $composableBuilder(column: $table.platform, builder: (column) => column);
+
+  GeneratedColumn<String> get osVersion =>
+      $composableBuilder(column: $table.osVersion, builder: (column) => column);
+
+  GeneratedColumn<String> get appVersion => $composableBuilder(
+    column: $table.appVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get deviceModel => $composableBuilder(
+    column: $table.deviceModel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastSeen =>
+      $composableBuilder(column: $table.lastSeen, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+}
+
+class $$PairedDevicesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PairedDevicesTable,
+          PairedDevice,
+          $$PairedDevicesTableFilterComposer,
+          $$PairedDevicesTableOrderingComposer,
+          $$PairedDevicesTableAnnotationComposer,
+          $$PairedDevicesTableCreateCompanionBuilder,
+          $$PairedDevicesTableUpdateCompanionBuilder,
+          (
+            PairedDevice,
+            BaseReferences<_$AppDatabase, $PairedDevicesTable, PairedDevice>,
+          ),
+          PairedDevice,
+          PrefetchHooks Function()
+        > {
+  $$PairedDevicesTableTableManager(_$AppDatabase db, $PairedDevicesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PairedDevicesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PairedDevicesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PairedDevicesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> deviceUuid = const Value.absent(),
+                Value<String> deviceName = const Value.absent(),
+                Value<String> platform = const Value.absent(),
+                Value<String> osVersion = const Value.absent(),
+                Value<String> appVersion = const Value.absent(),
+                Value<String> deviceModel = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> lastSeen = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PairedDevicesCompanion(
+                deviceUuid: deviceUuid,
+                deviceName: deviceName,
+                platform: platform,
+                osVersion: osVersion,
+                appVersion: appVersion,
+                deviceModel: deviceModel,
+                createdAt: createdAt,
+                lastSeen: lastSeen,
+                status: status,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String deviceUuid,
+                required String deviceName,
+                required String platform,
+                required String osVersion,
+                required String appVersion,
+                required String deviceModel,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> lastSeen = const Value.absent(),
+                required String status,
+                Value<int> rowid = const Value.absent(),
+              }) => PairedDevicesCompanion.insert(
+                deviceUuid: deviceUuid,
+                deviceName: deviceName,
+                platform: platform,
+                osVersion: osVersion,
+                appVersion: appVersion,
+                deviceModel: deviceModel,
+                createdAt: createdAt,
+                lastSeen: lastSeen,
+                status: status,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PairedDevicesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PairedDevicesTable,
+      PairedDevice,
+      $$PairedDevicesTableFilterComposer,
+      $$PairedDevicesTableOrderingComposer,
+      $$PairedDevicesTableAnnotationComposer,
+      $$PairedDevicesTableCreateCompanionBuilder,
+      $$PairedDevicesTableUpdateCompanionBuilder,
+      (
+        PairedDevice,
+        BaseReferences<_$AppDatabase, $PairedDevicesTable, PairedDevice>,
+      ),
+      PairedDevice,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6193,6 +7060,8 @@ class $AppDatabaseManager {
       $$BackupHistoryTableTableManager(_db, _db.backupHistory);
   $$SearchHistoriesTableTableManager get searchHistories =>
       $$SearchHistoriesTableTableManager(_db, _db.searchHistories);
+  $$PairedDevicesTableTableManager get pairedDevices =>
+      $$PairedDevicesTableTableManager(_db, _db.pairedDevices);
 }
 
 mixin _$BackupFoldersDaoMixin on DatabaseAccessor<AppDatabase> {
@@ -6277,4 +7146,16 @@ class SearchHistoriesDaoManager {
         _db.attachedDatabase,
         _db.searchHistories,
       );
+}
+
+mixin _$PairedDevicesDaoMixin on DatabaseAccessor<AppDatabase> {
+  $PairedDevicesTable get pairedDevices => attachedDatabase.pairedDevices;
+  PairedDevicesDaoManager get managers => PairedDevicesDaoManager(this);
+}
+
+class PairedDevicesDaoManager {
+  final _$PairedDevicesDaoMixin _db;
+  PairedDevicesDaoManager(this._db);
+  $$PairedDevicesTableTableManager get pairedDevices =>
+      $$PairedDevicesTableTableManager(_db.attachedDatabase, _db.pairedDevices);
 }

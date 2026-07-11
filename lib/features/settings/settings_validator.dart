@@ -43,6 +43,11 @@ class SettingsValidator {
         settings.backup.duplicatePolicy != 'ask') {
       errors.add('Backup: Duplicate policy must be "keep_both", "replace", or "ask".');
     }
+    if (settings.backup.backupOrganizationMode != 'mirror' &&
+        settings.backup.backupOrganizationMode != 'smart' &&
+        settings.backup.backupOrganizationMode != 'hybrid') {
+      errors.add('Backup: Backup organization mode must be "mirror", "smart", or "hybrid".');
+    }
 
     // Monitoring
     if (settings.monitoring.maxWorkerThreads <= 0 || settings.monitoring.maxWorkerThreads > 64) {

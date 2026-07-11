@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'notification_models.dart';
-import 'notification_provider.dart';
+import '../../core/models/notification_models.dart';
+import '../../core/logging/notification_history.dart';
+import '../../shared/providers/notification_provider.dart';
 import 'notification_controller.dart';
-import 'notification_history.dart';
 
 class NotificationCenterScreen extends ConsumerStatefulWidget {
   const NotificationCenterScreen({super.key});

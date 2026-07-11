@@ -23,6 +23,7 @@ class MainNavigationShell extends StatelessWidget {
     if (location.startsWith('/versions')) return 8;
     if (location.startsWith('/notifications')) return 9;
     if (location.startsWith('/scheduler')) return 10;
+    if (location.startsWith('/devices')) return 11;
     return 0;
   }
 
@@ -61,6 +62,9 @@ class MainNavigationShell extends StatelessWidget {
       case 10:
         context.go('/scheduler');
         break;
+      case 11:
+        context.go('/devices');
+        break;
     }
   }
 
@@ -77,6 +81,7 @@ class MainNavigationShell extends StatelessWidget {
       const _DrawerItemData(Icons.history_rounded, 'History', 8),
       const _DrawerItemData(Icons.notifications_rounded, 'Alerts', 9),
       const _DrawerItemData(Icons.auto_awesome_rounded, 'Scheduler', 10),
+      const _DrawerItemData(Icons.devices_other_rounded, 'Devices', 11),
     ];
 
     return destinations.map((d) {
@@ -230,6 +235,11 @@ class MainNavigationShell extends StatelessWidget {
                   icon: Icon(Icons.auto_awesome_rounded),
                   selectedIcon: Icon(Icons.auto_awesome_rounded),
                   label: Text('Scheduler'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.devices_other_rounded),
+                  selectedIcon: Icon(Icons.devices_other_rounded),
+                  label: Text('Devices'),
                 ),
               ],
             ),

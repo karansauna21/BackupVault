@@ -15,6 +15,7 @@ import '../../features/version_history/version_history_screen.dart';
 import '../../features/notifications/notification_center_screen.dart';
 import '../../features/scheduler/scheduler_screen.dart';
 import '../../features/configuration/configuration_screen.dart';
+import '../../features/devices/devices_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell');
@@ -80,6 +81,10 @@ final goRouter = GoRouter(
         GoRoute(
           path: '/scheduler',
           builder: (context, state) => const SchedulerScreen(),
+        ),
+        GoRoute(
+          path: '/devices',
+          builder: (context, state) => const DevicesScreen(),
         ),
       ],
     ),

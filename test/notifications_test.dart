@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:backup_vault/features/notifications/notification_models.dart';
-import 'package:backup_vault/features/notifications/notification_database.dart';
-import 'package:backup_vault/features/notifications/notification_repository.dart';
-import 'package:backup_vault/features/notifications/notification_scheduler.dart';
-import 'package:backup_vault/features/notifications/notification_history.dart';
-import 'package:backup_vault/features/notifications/notification_service.dart';
-import 'package:backup_vault/features/notifications/notification_provider.dart';
+import 'package:backup_vault/core/models/notification_models.dart';
+import 'package:backup_vault/core/database/notification_database.dart';
+import 'package:backup_vault/core/repositories/notification_repository.dart';
+import 'package:backup_vault/core/services/notification_scheduler.dart';
+import 'package:backup_vault/core/logging/notification_history.dart';
+import 'package:backup_vault/core/services/notification_service.dart';
+import 'package:backup_vault/core/services/platform_notification_service.dart';
+import 'package:backup_vault/shared/providers/notification_provider.dart';
 import 'package:backup_vault/features/notifications/notification_center_screen.dart';
 
 void main() {
@@ -21,7 +22,7 @@ void main() {
     db = NotificationDatabase(isInMemory: true);
     repository = NotificationRepository(db);
     await repository.init();
-    service = NotificationService(repository);
+    service = NotificationService(repository, FakePlatformNotificationService());
   });
 
   tearDown(() {
@@ -283,4 +284,13 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
   });
+}
+
+class FakePlatformNotificationService implements PlatformNotificationService {
+  @override
+  Future<void> showNotification({
+    required String title,
+    required String message,
+    required String priority,
+  }) async {}
 }

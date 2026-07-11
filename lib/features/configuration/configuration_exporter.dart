@@ -5,7 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'configuration_models.dart';
 import '../settings/settings_repository.dart';
 import '../../core/repositories/backup_folder_repository.dart';
-import '../scheduler/scheduler_repository.dart';
+import '../../core/repositories/scheduler_repository.dart';
 import '../../core/database/app_database.dart';
 
 class ConfigurationExporter {

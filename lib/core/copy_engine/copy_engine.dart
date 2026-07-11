@@ -8,6 +8,7 @@ import '../repositories/backup_file_repository.dart';
 import '../repositories/file_version_repository.dart';
 import '../repositories/repository_providers.dart';
 import '../services/logging_service.dart';
+import '../../features/settings/settings_provider.dart';
 import 'copy_job.dart';
 import 'copy_queue.dart';
 import 'copy_worker.dart';
@@ -118,14 +119,49 @@ class CopyEngine {
       await _logger.info('CopyEngine', 'Calculating pre-copy hash for: ${job.sourcePath}');
       final sourceHash = await _integrityVerifier.calculateSha256(file);
 
-      // Check duplicates
-      final duplicatePath = await _archiveManager.duplicateDetector.findDuplicateBackupPath(sourceHash, job.fileSize);
+      // Determine the destination path based on Backup Organization settings
+      final settings = ref.read(settingsProvider);
+      final orgMode = settings.backup.backupOrganizationMode;
+
       String finalDestPath = job.destinationPath;
+      String? indexDestPath;
+
+      final folderRepo = ref.read(backupFolderRepositoryProvider);
+      final folder = await folderRepo.getFolderById(job.folderId);
+      if (folder != null) {
+        final relativePath = p.relative(job.destinationPath, from: folder.destinationPath);
+        final category = _getCategoryForExtension(p.extension(job.sourcePath));
+        
+        if (orgMode == 'smart') {
+          finalDestPath = p.join(folder.destinationPath, category, relativePath);
+        } else if (orgMode == 'hybrid') {
+          finalDestPath = job.destinationPath; // Primary is mirror
+          indexDestPath = p.join(folder.destinationPath, category, relativePath);
+        }
+      }
+
+      // Check duplicates
+      String? duplicatePath;
+      if (folder != null) {
+        duplicatePath = await _archiveManager.duplicateDetector.findDuplicateBackupPath(
+          sha256: sourceHash,
+          fileSize: job.fileSize,
+          folderId: job.folderId,
+          currentDestinationPath: folder.destinationPath,
+        );
+      }
 
       if (duplicatePath != null) {
         finalDestPath = duplicatePath;
         await _logger.info('CopyEngine', 'Duplicate found for ${job.sourcePath}. Referencing existing backup: $duplicatePath');
         queueNotifier.updateJobProgress(job.id, 1.0, 0.0);
+
+        if (indexDestPath != null) {
+          await _logger.info('CopyEngine', 'Hybrid Mode: Indexing duplicate file to: $indexDestPath');
+          final indexFile = File(indexDestPath);
+          await indexFile.parent.create(recursive: true);
+          await file.copy(indexDestPath);
+        }
       } else {
         // Enforce storage space checks
         final storage = await _storageManager.getStorageInfo(finalDestPath);
@@ -151,7 +187,18 @@ class CopyEngine {
         final destFile = File(finalDestPath);
         final verified = await _integrityVerifier.verifyIntegrity(file, destFile);
         if (!verified) {
+          await _logger.warning('CopyEngine', 'Integrity verification failed for $finalDestPath. Mismatch in SHA-256 hash. Deleting corrupted copy.');
+          try {
+            await destFile.delete();
+          } catch (_) {}
           throw Exception('Integrity check failed: source and destination SHA-256 mismatch');
+        }
+
+        if (indexDestPath != null) {
+          await _logger.info('CopyEngine', 'Hybrid Mode: Copying categorized index file: $finalDestPath -> $indexDestPath');
+          final indexFile = File(indexDestPath);
+          await indexFile.parent.create(recursive: true);
+          await destFile.copy(indexDestPath);
         }
       }
 
@@ -226,6 +273,7 @@ class CopyEngine {
 
       if (job.retryCount < 3) {
         final nextRetry = job.retryCount + 1;
+        await _logger.warning('CopyEngine', 'Retrying copy job for ${job.sourcePath} (Attempt $nextRetry/3)');
         queueNotifier.updateJobResult(
           job.id,
           CopyStatus.pending,
@@ -245,6 +293,50 @@ class CopyEngine {
     }
   }
 
+  String _getCategoryForExtension(String ext) {
+    final cleanExt = ext.toLowerCase().replaceAll('.', '').trim();
+    switch (cleanExt) {
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'webp':
+      case 'heic':
+        return 'Images';
+      case 'mp4':
+      case 'mkv':
+      case 'avi':
+      case 'mov':
+      case '3gp':
+        return 'Videos';
+      case 'pdf':
+      case 'doc':
+      case 'docx':
+      case 'xls':
+      case 'xlsx':
+      case 'ppt':
+      case 'txt':
+        return 'Documents';
+      case 'zip':
+      case 'rar':
+      case '7z':
+      case 'tar':
+      case 'gz':
+        return 'Archives';
+      case 'mp3':
+      case 'wav':
+      case 'flac':
+      case 'aac':
+        return 'Audio';
+      case 'apk':
+      case 'exe':
+      case 'msi':
+        return 'Applications';
+      default:
+        return 'Others';
+    }
+  }
+
   StorageManager get storageManager => _storageManager;
   RetentionManager get retentionManager => _retentionManager;
 }
@@ -256,7 +348,7 @@ final copyEngineProvider = Provider<CopyEngine>((ref) {
   
   final storageManager = StorageManager();
   final retentionManager = RetentionManager(logger: logger);
-  final integrityVerifier = IntegrityVerifier();
+  final integrityVerifier = ref.watch(integrityVerifierProvider);
   final pathGenerator = PathGenerator();
   
   final duplicateDetector = DuplicateDetector(fileRepository: fileRepo);

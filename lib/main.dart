@@ -4,7 +4,7 @@ import 'core/navigation/app_routes.dart';
 import 'core/theme/app_theme.dart';
 import 'features/settings/settings_provider.dart';
 
-import 'features/background/background_provider.dart';
+import 'shared/providers/background_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -5,8 +5,8 @@ import 'package:drift/drift.dart';
 import 'configuration_models.dart';
 import '../settings/settings_repository.dart';
 import '../../core/repositories/backup_folder_repository.dart';
-import '../scheduler/scheduler_models.dart';
-import '../scheduler/scheduler_repository.dart';
+import '../../core/models/scheduler_models.dart';
+import '../../core/repositories/scheduler_repository.dart';
 import '../../core/database/app_database.dart';
 import '../settings/settings_models.dart';
 

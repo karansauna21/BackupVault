@@ -16,5 +16,8 @@ class FileVersionRepositoryImpl implements FileVersionRepository {
   Future<int> addVersion(FileVersionsCompanion version) => _dao.insertVersion(version);
 
   @override
+  Future<bool> updateVersion(FileVersion version) => _dao.updateVersion(version);
+
+  @override
   Future<int> deleteVersion(int id) => _dao.deleteVersionById(id);
 }

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/logging_service.dart';
 import 'copy_job.dart';
 
 class CopyQueue extends Notifier<List<CopyJob>> {
@@ -43,6 +44,9 @@ class CopyQueue extends Notifier<List<CopyJob>> {
 
   void pauseQueue() {
     _isQueuePaused = true;
+    try {
+      ref.read(loggingServiceProvider).info('CopyQueue', 'Backup queue paused.');
+    } catch (_) {}
     for (final job in state) {
       if (job.status == CopyStatus.copying) {
         _updateJobStatus(job.id, CopyStatus.paused);
@@ -52,6 +56,9 @@ class CopyQueue extends Notifier<List<CopyJob>> {
 
   void resumeQueue() {
     _isQueuePaused = false;
+    try {
+      ref.read(loggingServiceProvider).info('CopyQueue', 'Backup queue resumed.');
+    } catch (_) {}
     for (final job in state) {
       if (job.status == CopyStatus.paused && !_pausedJobIds.contains(job.id)) {
         state = [

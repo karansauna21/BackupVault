@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart';
+import '../../core/utils/android_storage.dart';
 import '../../core/database/app_database.dart';
 import '../../core/repositories/backup_folder_repository.dart';
 import '../../core/repositories/repository_providers.dart';
@@ -66,12 +67,30 @@ class FolderManagerRepository {
   Future<FolderStats> scanAndValidate(int folderId, String sourcePath, String destinationPath) async {
     final currentStats = await getStatsForFolder(folderId);
     
+    var resolvedSource = sourcePath;
+    var resolvedDest = destinationPath;
+
+    if (Platform.isAndroid) {
+      if (sourcePath.startsWith('content://')) {
+        final resolved = await AndroidStorage.resolvePath(sourcePath);
+        if (resolved != null && resolved.isNotEmpty) {
+          resolvedSource = resolved;
+        }
+      }
+      if (destinationPath.startsWith('content://')) {
+        final resolved = await AndroidStorage.resolvePath(destinationPath);
+        if (resolved != null && resolved.isNotEmpty) {
+          resolvedDest = resolved;
+        }
+      }
+    }
+    
     // 1. Scan folder files
-    final scanner = FolderScanner(path: sourcePath, rules: currentStats.rules);
+    final scanner = FolderScanner(path: resolvedSource, rules: currentStats.rules);
     final scanResult = await scanner.scan();
 
     // 2. Validate folder health
-    final health = await FolderValidator.checkHealth(sourcePath, destinationPath);
+    final health = await FolderValidator.checkHealth(resolvedSource, resolvedDest);
 
     final updated = currentStats.copyWith(
       fileCount: scanResult.fileCount,

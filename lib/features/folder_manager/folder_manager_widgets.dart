@@ -7,6 +7,7 @@ import '../../core/database/app_database.dart';
 import 'folder_models.dart';
 import 'folder_manager_controller.dart';
 import '../../core/utils/android_storage.dart';
+import '../../shared/providers/platform_providers.dart';
 
 // Helper formatting utilities
 String formatFolderBytes(int bytes) {
@@ -339,7 +340,28 @@ class FolderCard extends ConsumerWidget {
     );
   }
 
+  String _formatDisplayPath(String path) {
+    if (path.startsWith('content://')) {
+      try {
+        final decoded = Uri.decodeFull(path);
+        if (decoded.contains('/tree/')) {
+          final treePart = decoded.split('/tree/').last;
+          final segments = treePart.split(':');
+          final volume = segments.first == 'primary' ? 'Internal Storage' : segments.first;
+          final relativePath = segments.length > 1 ? segments[1] : '';
+          if (relativePath.isNotEmpty) {
+            return '$volume: $relativePath';
+          }
+          return volume;
+        }
+      } catch (_) {}
+      return path;
+    }
+    return path;
+  }
+
   Widget _buildPathRow(ThemeData theme, IconData icon, String label, String path) {
+    final displayPath = _formatDisplayPath(path);
     return Row(
       children: [
         Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
@@ -353,9 +375,9 @@ class FolderCard extends ConsumerWidget {
         ),
         Expanded(
           child: Text(
-            path.isEmpty ? 'Not Configured' : path,
+            displayPath.isEmpty ? 'Not Configured' : displayPath,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: path.isEmpty ? theme.colorScheme.error : null,
+              color: displayPath.isEmpty ? theme.colorScheme.error : null,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -540,7 +562,7 @@ class _RuleEditorDialogState extends State<RuleEditorDialog> {
   }
 }
 
-class FolderConfigDialog extends StatefulWidget {
+class FolderConfigDialog extends ConsumerStatefulWidget {
   final BackupFolder? existingFolder;
   final FolderRules? initialRules;
 
@@ -551,10 +573,10 @@ class FolderConfigDialog extends StatefulWidget {
   });
 
   @override
-  State<FolderConfigDialog> createState() => _FolderConfigDialogState();
+  ConsumerState<FolderConfigDialog> createState() => _FolderConfigDialogState();
 }
 
-class _FolderConfigDialogState extends State<FolderConfigDialog> {
+class _FolderConfigDialogState extends ConsumerState<FolderConfigDialog> {
   final _nameController = TextEditingController();
   final _sourceController = TextEditingController();
   final _destController = TextEditingController();
@@ -615,62 +637,21 @@ class _FolderConfigDialogState extends State<FolderConfigDialog> {
                     icon: const Icon(Icons.folder_open_rounded),
                     tooltip: 'Browse Folder',
                     onPressed: () async {
-                      if (Platform.isAndroid) {
-                        final hasPerm = await AndroidStorage.hasStoragePermission();
-                        if (!hasPerm) {
-                          if (!context.mounted) return;
-                          final grant = await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Storage Permission Required'),
-                              content: const Text('BackupVault needs All Files Access permission to read and backup files from your device storage.'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
-                                  child: const Text('Cancel'),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: const Text('Grant'),
-                                ),
-                              ],
-                            ),
-                          );
-                          if (grant == true) {
-                            final granted = await AndroidStorage.requestStoragePermission();
-                            if (!granted) {
-                              if (!context.mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Storage permission not granted. Cannot pick folders.')),
-                              );
-                              return;
-                            }
-                          } else {
-                            return;
-                          }
-                        }
-                        final dirInfo = await AndroidStorage.pickDirectory();
-                        if (dirInfo != null && dirInfo['path']!.isNotEmpty) {
-                          setState(() {
-                            _sourceController.text = dirInfo['path']!;
-                            if (_nameController.text.isEmpty) {
-                              _nameController.text = p.basename(dirInfo['path']!);
-                            }
-                          });
-                        }
-                      } else {
-                        final path = await showDialog<String>(
-                          context: context,
-                          builder: (context) => const CustomFolderPickerDialog(),
-                        );
-                        if (path != null) {
-                          setState(() {
-                            _sourceController.text = path;
-                            if (_nameController.text.isEmpty) {
+                      final picker = ref.read(folderPickerProvider);
+                      final path = await picker.pickFolder(context);
+                      if (path != null) {
+                        setState(() {
+                          _sourceController.text = path;
+                          if (_nameController.text.isEmpty) {
+                            if (path.startsWith('content://')) {
+                              final decoded = Uri.decodeFull(path);
+                              final lastSegment = decoded.split('%3A').last.split('/').last;
+                              _nameController.text = lastSegment.isNotEmpty ? lastSegment : 'Android Folder';
+                            } else {
                               _nameController.text = p.basename(path);
                             }
-                          });
-                        }
+                          }
+                        });
                       }
                     },
                   ),
@@ -720,54 +701,12 @@ class _FolderConfigDialogState extends State<FolderConfigDialog> {
                     icon: const Icon(Icons.drive_file_move_rounded),
                     tooltip: 'Browse Destination',
                     onPressed: () async {
-                      if (Platform.isAndroid) {
-                        final hasPerm = await AndroidStorage.hasStoragePermission();
-                        if (!hasPerm) {
-                          if (!context.mounted) return;
-                          final grant = await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Storage Permission Required'),
-                              content: const Text('BackupVault needs All Files Access permission to write backups to your device storage.'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
-                                  child: const Text('Cancel'),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: const Text('Grant'),
-                                ),
-                              ],
-                            ),
-                          );
-                          if (grant == true) {
-                            final granted = await AndroidStorage.requestStoragePermission();
-                            if (!granted) {
-                              if (!context.mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Storage permission not granted. Cannot pick destination.')),
-                              );
-                              return;
-                            }
-                          } else {
-                            return;
-                          }
-                        }
-                        final dirInfo = await AndroidStorage.pickDirectory();
-                        if (dirInfo != null && dirInfo['path']!.isNotEmpty) {
-                          setState(() {
-                            _destController.text = dirInfo['path']!;
-                          });
-                        }
-                      } else {
-                        final path = await showDialog<String>(
-                          context: context,
-                          builder: (context) => const CustomFolderPickerDialog(),
-                        );
-                        if (path != null) {
-                          setState(() => _destController.text = path);
-                        }
+                      final picker = ref.read(folderPickerProvider);
+                      final path = await picker.pickFolder(context);
+                      if (path != null) {
+                        setState(() {
+                          _destController.text = path;
+                        });
                       }
                     },
                   ),
@@ -844,30 +783,61 @@ class _FolderConfigDialogState extends State<FolderConfigDialog> {
     );
   }
 
+  Future<void> _handleAndroidShortcut(String type) async {
+    String uri = 'content://com.android.externalstorage.documents/tree/primary%3A';
+    if (type == 'Documents') uri += 'Documents';
+    if (type == 'Downloads') uri += 'Download';
+    if (type == 'DCIM') uri += 'DCIM';
+    if (type == 'Pictures') uri += 'Pictures';
+    if (type == 'Music') uri += 'Music';
+    if (type == 'Movies') uri += 'Movies';
+
+    final hasPerm = await AndroidStorage.isUriPermissionPersisted(uri);
+    if (hasPerm) {
+      setState(() {
+        _sourceController.text = uri;
+        if (_nameController.text.isEmpty) {
+          _nameController.text = type;
+        }
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Authorize access by tapping "Use this folder" in the next screen.'),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+
+    final result = await AndroidStorage.pickDirectory(initialUri: uri);
+    if (result != null && result['uri'] != null && result['uri']!.isNotEmpty) {
+      setState(() {
+        _sourceController.text = result['uri']!;
+        if (_nameController.text.isEmpty) {
+          _nameController.text = type;
+        }
+      });
+    }
+  }
+
   Widget _buildQuickShortcut(String type) {
     return ActionChip(
       label: Text(type),
       onPressed: () async {
         try {
           if (Platform.isAndroid) {
-            final hasPerm = await AndroidStorage.hasStoragePermission();
-            if (!hasPerm) {
-              if (!mounted) return;
-              final granted = await AndroidStorage.requestStoragePermission();
-              if (!granted) return;
-            }
+            await _handleAndroidShortcut(type);
+            return;
           }
           
           Directory? dir;
-          if (Platform.isAndroid) {
-            dir = await getAndroidDirectory(type);
-          } else {
-            if (type == 'Desktop') dir = await getAppDirectory('desktop');
-            if (type == 'Documents') dir = await getApplicationDocumentsDirectory();
-            if (type == 'Downloads') dir = await getAppDirectory('downloads');
-            if (type == 'Pictures') dir = await getAppDirectory('pictures');
-            if (type == 'Music') dir = await getAppDirectory('music');
-          }
+          if (type == 'Desktop') dir = await getAppDirectory('desktop');
+          if (type == 'Documents') dir = await getApplicationDocumentsDirectory();
+          if (type == 'Downloads') dir = await getAppDirectory('downloads');
+          if (type == 'Pictures') dir = await getAppDirectory('pictures');
+          if (type == 'Music') dir = await getAppDirectory('music');
           
           if (dir != null) {
             setState(() {
@@ -880,17 +850,6 @@ class _FolderConfigDialogState extends State<FolderConfigDialog> {
         } catch (_) {}
       },
     );
-  }
-
-  Future<Directory?> getAndroidDirectory(String type) async {
-    final base = '/storage/emulated/0';
-    if (type == 'Documents') return Directory('$base/Documents');
-    if (type == 'Downloads') return Directory('$base/Download');
-    if (type == 'DCIM') return Directory('$base/DCIM');
-    if (type == 'Pictures') return Directory('$base/Pictures');
-    if (type == 'Music') return Directory('$base/Music');
-    if (type == 'Movies') return Directory('$base/Movies');
-    return null;
   }
 
   Future<Directory?> getAppDirectory(String type) async {

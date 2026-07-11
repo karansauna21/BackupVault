@@ -4,11 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../../core/database/database_provider.dart';
 import '../../../../core/services/logging_service.dart';
-import '../../../../core/services/backup_engine.dart';
 import '../../../../core/copy_engine/copy_job.dart';
 import '../../../../core/copy_engine/copy_queue.dart';
+import '../../../../core/services/backup_engine.dart';
 import '../../../dashboard/dashboard_provider.dart';
 import '../../../folder_manager/folder_manager_provider.dart';
+import '../../workflows/backup_workflow_provider.dart';
 import 'backup_state.dart';
 
 class BackupNotifier extends Notifier<BackupState> {
@@ -22,7 +23,7 @@ class BackupNotifier extends Notifier<BackupState> {
 
     final db = ref.read(databaseProvider);
     final logger = ref.read(loggingServiceProvider);
-    final backupEngine = ref.read(backupEngineProvider);
+    final backupWorkflow = ref.read(backupWorkflowProvider);
 
     state = BackupState(
       isBackingUp: true,
@@ -35,8 +36,8 @@ class BackupNotifier extends Notifier<BackupState> {
     await logger.info('BackupService', 'Starting backup for folder: ${folder.name}');
 
     try {
-      // Start scanning and queue building
-      final jobs = await backupEngine.backupFolder(folder);
+      // Start scanning and queue building via platform-specific workflow
+      final jobs = await backupWorkflow.run(folder);
 
       if (jobs.isEmpty) {
         await logger.info('BackupService', 'No new or modified files found for folder: ${folder.name}');
@@ -54,11 +55,16 @@ class BackupNotifier extends Notifier<BackupState> {
       final totalCount = jobs.length;
       final totalSize = jobs.fold<int>(0, (sum, j) => sum + j.fileSize);
 
+      final scanStats = ref.read(backupEngineProvider).getScanStats(folder.id);
+      final scannedCount = scanStats?.scannedCount ?? totalCount;
+      final skippedCount = scanStats?.skippedCount ?? 0;
+
       state = state.copyWith(
         currentStatusText: 'Backing up files... (0/$totalCount completed)',
         progress: 0.0,
       );
 
+      final stopwatch = Stopwatch()..start();
       bool allFinished = false;
       List<CopyJob> relevantJobs = [];
 
@@ -74,29 +80,56 @@ class BackupNotifier extends Notifier<BackupState> {
         }
 
         int finishedCount = 0;
-        double sumProgress = 0.0;
+        int failedCount = 0;
+        double copiedBytes = 0.0;
 
         for (final job in relevantJobs) {
-          if (job.status == CopyStatus.completed ||
-              job.status == CopyStatus.failed ||
+          if (job.status == CopyStatus.completed) {
+            finishedCount++;
+            copiedBytes += job.fileSize;
+          } else if (job.status == CopyStatus.failed ||
               job.status == CopyStatus.canceled) {
             finishedCount++;
-            sumProgress += 1.0;
+            failedCount++;
           } else if (job.status == CopyStatus.copying) {
-            sumProgress += job.progress;
+            copiedBytes += job.fileSize * job.progress;
           }
         }
 
-        final overallProgress = sumProgress / totalCount;
+        final remainingBytes = (totalSize - copiedBytes).clamp(0.0, totalSize.toDouble());
+        final remainingFilesCount = relevantJobs.where((j) => j.status == CopyStatus.pending || j.status == CopyStatus.copying).length;
+
+        final totalSpeed = relevantJobs
+            .where((j) => j.status == CopyStatus.copying)
+            .fold<double>(0.0, (sum, j) => sum + j.speed);
+
+        final etaSeconds = totalSpeed > 0 ? remainingBytes / totalSpeed : 0.0;
+
+        final overallProgress = totalSize > 0 ? (copiedBytes / totalSize) : 0.0;
+
+        final speedStr = _formatSpeed(totalSpeed);
+        final etaStr = _formatEta(etaSeconds);
+        final copiedSizeStr = _formatSize(copiedBytes.toInt());
+        final totalSizeStr = _formatSize(totalSize);
+        final remainingSizeStr = _formatSize(remainingBytes.toInt());
+
+        final statusText = 'Scanned: $scannedCount files | Skipped: $skippedCount\n'
+            'Copied: ${finishedCount - failedCount} | Failed: $failedCount | Remaining: $remainingFilesCount files\n'
+            'Size: $copiedSizeStr / $totalSizeStr (Remaining: $remainingSizeStr)\n'
+            'Speed: $speedStr | ETA: $etaStr';
+
         state = state.copyWith(
           progress: overallProgress,
-          currentStatusText: 'Backing up files... ($finishedCount/$totalCount completed)',
+          currentStatusText: statusText,
         );
 
         if (finishedCount == totalCount) {
           allFinished = true;
         }
       }
+
+      stopwatch.stop();
+      final duration = stopwatch.elapsed;
 
       // Check results
       final completedCount = relevantJobs.where((j) => j.status == CopyStatus.completed).length;
@@ -118,7 +151,7 @@ class BackupNotifier extends Notifier<BackupState> {
             folderId: Value(folder.id),
             timestamp: Value(now),
             status: 'success',
-            message: 'Backup completed successfully. Saved $completedCount files. (Failed: $failedCount)',
+            message: 'Backup completed successfully in ${duration.inSeconds}s. Saved $completedCount files. (Failed: $failedCount)',
             filesCount: Value(completedCount),
             totalSize: Value(totalSize),
             backupType: const Value('full'),
@@ -127,24 +160,23 @@ class BackupNotifier extends Notifier<BackupState> {
 
         await logger.info(
           'BackupService',
-          'Backup for "${folder.name}" completed. files: $completedCount, size: ${(totalSize / (1024 * 1024)).toStringAsFixed(2)} MB',
+          'Backup for "${folder.name}" completed in ${duration.inMilliseconds}ms. files: $completedCount, size: ${_formatSize(totalSize)}',
         );
       } else {
-        // Never report success if zero files were successfully copied
         if (failedCount > 0) {
           await db.into(db.backupHistory).insert(
             BackupHistoryCompanion.insert(
               folderId: Value(folder.id),
               timestamp: Value(DateTime.now()),
               status: 'failed',
-              message: 'Backup failed. 0 files copied. Failed: $failedCount',
+              message: 'Backup failed in ${duration.inSeconds}s. 0 files copied. Failed: $failedCount',
               filesCount: Value(0),
               totalSize: Value(0),
               backupType: const Value('full'),
             ),
           );
         }
-        await logger.warning('BackupService', 'Backup finished but 0 files were successfully copied.');
+        await logger.warning('BackupService', 'Backup finished in ${duration.inMilliseconds}ms but 0 files were successfully copied.');
       }
 
       // Refresh list and dashboard
@@ -171,6 +203,29 @@ class BackupNotifier extends Notifier<BackupState> {
       state = BackupState(); // Reset state
       ref.invalidate(dashboardProvider);
     }
+  }
+
+  String _formatSize(int bytes) {
+    if (bytes <= 0) return '0 B';
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  String _formatSpeed(double bytesPerSec) {
+    if (bytesPerSec <= 0) return '0 B/s';
+    if (bytesPerSec < 1024) return '${bytesPerSec.toStringAsFixed(1)} B/s';
+    if (bytesPerSec < 1024 * 1024) return '${(bytesPerSec / 1024).toStringAsFixed(1)} KB/s';
+    return '${(bytesPerSec / (1024 * 1024)).toStringAsFixed(1)} MB/s';
+  }
+
+  String _formatEta(double seconds) {
+    if (seconds.isInfinite || seconds.isNaN || seconds <= 0) return '--';
+    if (seconds < 60) return '${seconds.toInt()}s';
+    final minutes = seconds ~/ 60;
+    final remainingSecs = (seconds % 60).toInt();
+    return '${minutes}m ${remainingSecs}s';
   }
 }
 

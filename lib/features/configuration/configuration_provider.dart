@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/database/database_provider.dart';
 import '../../core/repositories/repository_providers.dart';
 import '../settings/settings_provider.dart';
-import '../scheduler/scheduler_provider.dart';
+import '../../shared/providers/scheduler_provider.dart';
 import 'configuration_models.dart';
 import 'configuration_repository.dart';
 import 'configuration_exporter.dart';

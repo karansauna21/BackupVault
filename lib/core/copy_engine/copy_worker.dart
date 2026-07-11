@@ -84,5 +84,10 @@ class CopyWorker {
       await destSink.close();
       stopwatch.stop();
     }
+
+    try {
+      final mtime = await sourceFile.lastModified();
+      await destFile.setLastModified(mtime);
+    } catch (_) {}
   }
 }

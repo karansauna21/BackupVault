@@ -2,12 +2,60 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:backup_vault/core/database/app_database.dart';
-import 'package:backup_vault/features/scheduler/scheduler_models.dart';
-import 'package:backup_vault/features/scheduler/schedule_history.dart';
-import 'package:backup_vault/features/scheduler/schedule_validator.dart';
-import 'package:backup_vault/features/scheduler/rule_engine.dart';
-import 'package:backup_vault/features/scheduler/trigger_engine.dart';
-import 'package:backup_vault/features/scheduler/job_manager.dart';
+import 'package:backup_vault/core/models/scheduler_models.dart';
+import 'package:backup_vault/core/models/schedule_history.dart';
+import 'package:backup_vault/core/scheduler/schedule_validator.dart';
+import 'package:backup_vault/core/scheduler/rule_engine.dart';
+import 'package:backup_vault/core/scheduler/trigger_engine.dart';
+import 'package:backup_vault/core/scheduler/job_manager.dart';
+import 'package:backup_vault/core/services/platform_info.dart';
+import 'package:backup_vault/core/services/storage_provider.dart';
+
+class FakePlatformInfo implements PlatformInfo {
+  @override
+  String get platformName => 'Windows';
+
+  @override
+  bool get isWindows => true;
+
+  @override
+  bool get isAndroid => false;
+
+  @override
+  bool get isRunningOnBattery => false;
+
+  @override
+  bool get isCharging => true;
+
+  @override
+  int get batteryLevel => 100;
+
+  @override
+  double get systemIdleSeconds => 0.0;
+
+  @override
+  bool get isFullScreenActive => false;
+
+  @override
+  double get cpuUsage => 10.0;
+
+  @override
+  Set<String> getLogicalDrives() => {'C:\\', 'D:\\'};
+
+  @override
+  String getDriveType(String drivePath) => 'Fixed';
+}
+
+class FakeStorageProvider implements StorageProvider {
+  @override
+  Future<String?> resolvePath(String uriOrPath) async => uriOrPath;
+
+  @override
+  Future<Map<String, String>?> pickDirectory() async => null;
+
+  @override
+  Future<Map<String, int>?> getDiskFreeSpace(String path) async => {'total': 100000000, 'free': 50000000};
+}
 
 void main() {
   group('Unit Tests - Serialization', () {
@@ -101,6 +149,7 @@ void main() {
         onTriggerFired: (type, {folderId}) {
           firedTriggers.add(type);
         },
+        platformInfo: FakePlatformInfo(),
       );
 
       engine.init();
@@ -120,7 +169,7 @@ void main() {
     });
 
     test('RuleEngine high CPU evaluation', () async {
-      final engine = RuleEngine();
+      final engine = RuleEngine(FakePlatformInfo(), FakeStorageProvider());
       final config = ScheduleConfig(
         id: '1',
         name: 'Test',
@@ -156,7 +205,7 @@ void main() {
     });
 
     test('RuleEngine low battery evaluation', () async {
-      final engine = RuleEngine();
+      final engine = RuleEngine(FakePlatformInfo(), FakeStorageProvider());
       final config = ScheduleConfig(
         id: '1',
         name: 'Test',
@@ -199,7 +248,7 @@ void main() {
     });
 
     test('RuleEngine skip duplicate check', () async {
-      final engine = RuleEngine();
+      final engine = RuleEngine(FakePlatformInfo(), FakeStorageProvider());
       final config = ScheduleConfig(
         id: '1',
         name: 'Test',

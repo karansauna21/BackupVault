@@ -3,9 +3,9 @@ import '../../core/database/database_provider.dart';
 import '../../core/services/backup_engine.dart';
 import '../../core/restore/restore_engine.dart';
 import '../../features/security/security_provider.dart';
-import '../../features/scheduler/scheduler_provider.dart';
-import '../../features/notifications/notification_provider.dart';
-import '../../features/background/background_provider.dart';
+import '../../shared/providers/scheduler_provider.dart';
+import '../../shared/providers/notification_provider.dart';
+import '../../shared/providers/background_provider.dart';
 
 class ReleaseValidator {
   final dynamic ref;

@@ -93,15 +93,30 @@ class SearchHistories extends Table {
   BoolColumn get pinned => boolean().withDefault(const Constant(false))();
 }
 
+class PairedDevices extends Table {
+  TextColumn get deviceUuid => text().withLength(min: 1, max: 255)();
+  TextColumn get deviceName => text().withLength(min: 1, max: 255)();
+  TextColumn get platform => text()();
+  TextColumn get osVersion => text()();
+  TextColumn get appVersion => text()();
+  TextColumn get deviceModel => text()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastSeen => dateTime().withDefault(currentDateAndTime)();
+  TextColumn get status => text()();
+
+  @override
+  Set<Column> get primaryKey => {deviceUuid};
+}
+
 @DriftDatabase(
-  tables: [BackupFolders, BackupFiles, FileVersions, BackupLogs, Settings, BackupHistory, SearchHistories],
-  daos: [BackupFoldersDao, BackupFilesDao, FileVersionsDao, BackupLogsDao, SettingsDao, SearchHistoriesDao],
+  tables: [BackupFolders, BackupFiles, FileVersions, BackupLogs, Settings, BackupHistory, SearchHistories, PairedDevices],
+  daos: [BackupFoldersDao, BackupFilesDao, FileVersionsDao, BackupLogsDao, SettingsDao, SearchHistoriesDao, PairedDevicesDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase({QueryExecutor? executor}) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration {
@@ -110,8 +125,8 @@ class AppDatabase extends _$AppDatabase {
         await m.createAll();
       },
       onUpgrade: (Migrator m, int from, int to) async {
-        if (from < 4) {
-          // Drop all and recreate to start fresh with schema version 4
+        if (from < 5) {
+          // Drop all and recreate to start fresh with schema version 5
           for (final table in allTables) {
             await m.deleteTable(table.actualTableName);
           }
@@ -167,6 +182,7 @@ class FileVersionsDao extends DatabaseAccessor<AppDatabase> with _$FileVersionsD
   Future<List<FileVersion>> getAllVersions() => select(fileVersions).get();
   Future<List<FileVersion>> getVersionsByFileId(int fileId) => (select(fileVersions)..where((t) => t.fileId.equals(fileId))).get();
   Future<int> insertVersion(FileVersionsCompanion version) => into(fileVersions).insert(version);
+  Future<bool> updateVersion(FileVersion version) => update(fileVersions).replace(version);
   Future<int> deleteVersionById(int id) => (delete(fileVersions)..where((t) => t.id.equals(id))).go();
 }
 
@@ -214,4 +230,15 @@ class SearchHistoriesDao extends DatabaseAccessor<AppDatabase> with _$SearchHist
   Future<bool> updateSearchHistory(SearchHistory history) => update(searchHistories).replace(history);
   Future<int> deleteSearchHistoryById(int id) => (delete(searchHistories)..where((t) => t.id.equals(id))).go();
   Future<int> clearSearchHistory() => delete(searchHistories).go();
+}
+
+@DriftAccessor(tables: [PairedDevices])
+class PairedDevicesDao extends DatabaseAccessor<AppDatabase> with _$PairedDevicesDaoMixin {
+  PairedDevicesDao(super.db);
+
+  Future<List<PairedDevice>> getAllDevices() => select(pairedDevices).get();
+  Future<PairedDevice?> getDeviceByUuid(String uuid) => (select(pairedDevices)..where((t) => t.deviceUuid.equals(uuid))).getSingleOrNull();
+  Future<int> insertDevice(PairedDevicesCompanion device) => into(pairedDevices).insert(device);
+  Future<bool> updateDevice(PairedDevice device) => update(pairedDevices).replace(device);
+  Future<int> deleteDeviceByUuid(String uuid) => (delete(pairedDevices)..where((t) => t.deviceUuid.equals(uuid))).go();
 }

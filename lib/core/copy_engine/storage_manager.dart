@@ -18,10 +18,20 @@ class StorageInfo {
 }
 
 class StorageManager {
+  final Map<String, (StorageInfo, DateTime)> _cache = {};
+
   Future<StorageInfo> getStorageInfo(String path) async {
     final driveLetter = _getDriveLetter(path);
 
-    if (Platform.isWindows) {
+    final cached = _cache[driveLetter];
+    if (cached != null) {
+      final (info, timestamp) = cached;
+      if (DateTime.now().difference(timestamp).inSeconds < 5) {
+        return info;
+      }
+    }
+
+    if (Platform.isWindows && !Platform.environment.containsKey('FLUTTER_TEST')) {
       try {
         final result = await Process.run('powershell', [
           '-Command',
@@ -39,12 +49,14 @@ class StorageManager {
               final free = freeSpace is int ? freeSpace : int.tryParse(freeSpace.toString()) ?? 0;
               final isLow = total > 0 ? (free / total) < 0.10 : false;
               
-              return StorageInfo(
+              final info = StorageInfo(
                 driveLetter: driveLetter,
                 totalBytes: total,
                 availableBytes: free,
                 isLowSpace: isLow,
               );
+              _cache[driveLetter] = (info, DateTime.now());
+              return info;
             }
           }
         }
@@ -56,12 +68,14 @@ class StorageManager {
     // Default mock fallback for test compatibility or non-Windows platforms
     final mockTotal = 512 * 1024 * 1024 * 1024; // 512 GB
     final mockAvailable = 128 * 1024 * 1024 * 1024; // 128 GB
-    return StorageInfo(
+    final fallbackInfo = StorageInfo(
       driveLetter: driveLetter,
       totalBytes: mockTotal,
       availableBytes: mockAvailable,
       isLowSpace: false,
     );
+    _cache[driveLetter] = (fallbackInfo, DateTime.now());
+    return fallbackInfo;
   }
 
   String _getDriveLetter(String path) {

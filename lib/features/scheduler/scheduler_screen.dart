@@ -3,11 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../core/database/app_database.dart';
 import '../../core/repositories/repository_providers.dart';
-import 'scheduler_models.dart';
-import 'scheduler_provider.dart';
-import 'scheduler_controller.dart';
-import 'schedule_history.dart';
-import 'job_manager.dart';
+import '../../core/models/scheduler_models.dart';
+import '../../core/models/schedule_history.dart';
+import '../../core/scheduler/job_manager.dart';
+import '../../shared/providers/scheduler_provider.dart';
 
 class SchedulerScreen extends ConsumerStatefulWidget {
   const SchedulerScreen({super.key});

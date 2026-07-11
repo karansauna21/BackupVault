@@ -123,6 +123,7 @@ class BackupSettings {
   final String duplicatePolicy; // 'keep_both', 'replace', 'ask'
   final String dateFolderFormat; // 'yyyy-MM-dd', 'yyyyMMdd', 'dd-MM-yyyy'
   final String backupNamingFormat; // 'original_date', 'date_original', 'original'
+  final String backupOrganizationMode; // 'mirror', 'smart', 'hybrid'
 
   const BackupSettings({
     this.defaultBackupDestination = '',
@@ -136,6 +137,7 @@ class BackupSettings {
     this.duplicatePolicy = 'keep_both',
     this.dateFolderFormat = 'yyyy-MM-dd',
     this.backupNamingFormat = 'original_date',
+    this.backupOrganizationMode = 'mirror',
   });
 
   BackupSettings copyWith({
@@ -150,6 +152,7 @@ class BackupSettings {
     String? duplicatePolicy,
     String? dateFolderFormat,
     String? backupNamingFormat,
+    String? backupOrganizationMode,
   }) {
     return BackupSettings(
       defaultBackupDestination: defaultBackupDestination ?? this.defaultBackupDestination,
@@ -163,6 +166,7 @@ class BackupSettings {
       duplicatePolicy: duplicatePolicy ?? this.duplicatePolicy,
       dateFolderFormat: dateFolderFormat ?? this.dateFolderFormat,
       backupNamingFormat: backupNamingFormat ?? this.backupNamingFormat,
+      backupOrganizationMode: backupOrganizationMode ?? this.backupOrganizationMode,
     );
   }
 
@@ -178,6 +182,7 @@ class BackupSettings {
         'duplicatePolicy': duplicatePolicy,
         'dateFolderFormat': dateFolderFormat,
         'backupNamingFormat': backupNamingFormat,
+        'backupOrganizationMode': backupOrganizationMode,
       };
 
   factory BackupSettings.fromJson(Map<String, dynamic> json) {
@@ -193,6 +198,7 @@ class BackupSettings {
       duplicatePolicy: json['duplicatePolicy'] ?? 'keep_both',
       dateFolderFormat: json['dateFolderFormat'] ?? 'yyyy-MM-dd',
       backupNamingFormat: json['backupNamingFormat'] ?? 'original_date',
+      backupOrganizationMode: json['backupOrganizationMode'] ?? 'mirror',
     );
   }
 }
@@ -489,6 +495,7 @@ class SecuritySettings {
   final bool requireConfirmationBeforeDelete;
   final bool protectBackupDatabase;
   final bool lockSettings;
+  final bool autoRepairInterruptedBackups;
 
   const SecuritySettings({
     this.verifyIntegrity = true,
@@ -496,6 +503,7 @@ class SecuritySettings {
     this.requireConfirmationBeforeDelete = true,
     this.protectBackupDatabase = true,
     this.lockSettings = false,
+    this.autoRepairInterruptedBackups = true,
   });
 
   SecuritySettings copyWith({
@@ -504,6 +512,7 @@ class SecuritySettings {
     bool? requireConfirmationBeforeDelete,
     bool? protectBackupDatabase,
     bool? lockSettings,
+    bool? autoRepairInterruptedBackups,
   }) {
     return SecuritySettings(
       verifyIntegrity: verifyIntegrity ?? this.verifyIntegrity,
@@ -511,6 +520,7 @@ class SecuritySettings {
       requireConfirmationBeforeDelete: requireConfirmationBeforeDelete ?? this.requireConfirmationBeforeDelete,
       protectBackupDatabase: protectBackupDatabase ?? this.protectBackupDatabase,
       lockSettings: lockSettings ?? this.lockSettings,
+      autoRepairInterruptedBackups: autoRepairInterruptedBackups ?? this.autoRepairInterruptedBackups,
     );
   }
 
@@ -520,6 +530,7 @@ class SecuritySettings {
         'requireConfirmationBeforeDelete': requireConfirmationBeforeDelete,
         'protectBackupDatabase': protectBackupDatabase,
         'lockSettings': lockSettings,
+        'autoRepairInterruptedBackups': autoRepairInterruptedBackups,
       };
 
   factory SecuritySettings.fromJson(Map<String, dynamic> json) {
@@ -529,6 +540,7 @@ class SecuritySettings {
       requireConfirmationBeforeDelete: json['requireConfirmationBeforeDelete'] ?? true,
       protectBackupDatabase: json['protectBackupDatabase'] ?? true,
       lockSettings: json['lockSettings'] ?? false,
+      autoRepairInterruptedBackups: json['autoRepairInterruptedBackups'] ?? true,
     );
   }
 }

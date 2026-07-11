@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:crypto/crypto.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class IntegrityVerifier {
   Future<String> calculateSha256(File file) async {
@@ -21,3 +22,7 @@ class IntegrityVerifier {
     return sourceHash == destHash;
   }
 }
+
+final integrityVerifierProvider = Provider<IntegrityVerifier>((ref) {
+  return IntegrityVerifier();
+});

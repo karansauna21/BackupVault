@@ -3,6 +3,7 @@ import '../../core/services/logging_service.dart';
 import 'settings_models.dart';
 import 'settings_provider.dart';
 import 'settings_validator.dart';
+import '../../core/services/backup_migration_service.dart';
 
 class SettingsController extends Notifier<SettingsState> {
   @override
@@ -29,8 +30,17 @@ class SettingsController extends Notifier<SettingsState> {
   }
 
   Future<void> updateBackupSettings(BackupSettings backup) async {
+    final oldMode = state.backup.backupOrganizationMode;
+    final newMode = backup.backupOrganizationMode;
+
     final updated = state.copyWith(backup: backup);
-    _validateAndSave(updated, 'Backup');
+    await _validateAndSave(updated, 'Backup');
+
+    if (oldMode != newMode) {
+      final migration = ref.read(backupMigrationServiceProvider);
+      // Run migration asynchronously
+      migration.migrateAllFolders(oldMode, newMode);
+    }
   }
 
   Future<void> updateMonitoringSettings(MonitoringSettings monitoring) async {

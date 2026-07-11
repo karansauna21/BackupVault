@@ -20,7 +20,10 @@ class WatcherManager extends Notifier<WatcherState> {
 
     ref.onDispose(() {
       _eventQueue.dispose();
-      stopAll();
+      for (final monitor in _monitors.values) {
+        monitor.stop();
+      }
+      _monitors.clear();
     });
 
     return WatcherState.initial();
