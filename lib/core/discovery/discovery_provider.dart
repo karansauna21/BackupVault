@@ -11,6 +11,8 @@ import 'bonjour_service.dart';
 import 'network_scanner.dart';
 import 'discovery_models.dart';
 
+import '../transport/transport_provider.dart';
+
 final discoveryRepositoryProvider = Provider<DiscoveryRepository>((ref) {
   final db = ref.watch(settingsDatabaseProvider);
   return DiscoveryRepository(db);
@@ -25,7 +27,7 @@ final mdnsServiceProvider = Provider<MdnsService>((ref) {
     deviceName: identity.name,
     platform: identity.platform,
     appVersion: identity.appVersion,
-    transportPort: 8321,
+    transportPort: 8322,
   );
 });
 
@@ -44,7 +46,7 @@ final networkScannerProvider = Provider<NetworkScanner>((ref) {
     deviceName: identity.name,
     platform: identity.platform,
     appVersion: identity.appVersion,
-    transportPort: 8321,
+    transportPort: 8322,
   );
 });
 
@@ -70,11 +72,13 @@ final discoveryManagerProvider = Provider<DiscoveryManager>((ref) {
   final discoveryRepo = ref.watch(discoveryRepositoryProvider);
   final service = ref.watch(discoveryServiceProvider);
   final logger = ref.watch(loggingServiceProvider);
+  final transportManager = ref.watch(transportManagerProvider);
 
   final manager = DiscoveryManager(
     discoveryRepo,
     service,
     logger,
+    transportManager,
   );
   
   // Auto-initialize Discovery Manager on startup

@@ -5,6 +5,7 @@ import 'core/theme/app_theme.dart';
 import 'features/settings/settings_provider.dart';
 
 import 'shared/providers/background_provider.dart';
+import 'shared/providers/device_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,6 +15,10 @@ void main() async {
   // Initialize settings database first
   final settingsRepo = container.read(settingsRepositoryProvider);
   await settingsRepo.init();
+  
+  // Initialize device identity (crucial to prevent LateInitializationError)
+  final identity = container.read(deviceIdentityProvider);
+  await identity.init();
   
   // Initialize background module (which sets up window/tray/auto-start/service)
   await container.read(backgroundModuleProvider.notifier).init();

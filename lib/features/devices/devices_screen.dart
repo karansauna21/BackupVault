@@ -1,12 +1,17 @@
 import 'dart:async';
-import 'dart:math';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../core/models/device_model.dart';
 import '../../shared/providers/device_provider.dart';
 import '../../core/discovery/discovery_provider.dart';
 import '../../core/discovery/discovery_models.dart';
 import '../../core/discovery/discovery_manager.dart';
+import '../../core/services/device_pairing_service.dart';
 
 class DevicesScreen extends ConsumerStatefulWidget {
   const DevicesScreen({super.key});
@@ -19,17 +24,40 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
   final TextEditingController _renameController = TextEditingController();
   final TextEditingController _ipController = TextEditingController(text: '127.0.0.1');
   final TextEditingController _portController = TextEditingController(text: '8321');
+  final TextEditingController _pairCodeController = TextEditingController();
+  final Set<String> _shownDialogDeviceIds = {};
 
   @override
   void dispose() {
     _renameController.dispose();
     _ipController.dispose();
     _portController.dispose();
+    _pairCodeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<List<PendingPairingRequest>>>(
+      pendingRequestsStreamProvider,
+      (previous, next) {
+        next.whenData((requests) {
+          if (requests.isNotEmpty) {
+            PendingPairingRequest? incoming;
+            for (final r in requests) {
+              if (r.isIncoming && !r.isExpired) {
+                incoming = r;
+                break;
+              }
+            }
+            if (incoming != null) {
+              _showApprovalDialog(context, incoming);
+            }
+          }
+        });
+      },
+    );
+
     final theme = Theme.of(context);
     final pairedAsync = ref.watch(pairedDevicesStreamProvider);
     final manager = ref.watch(deviceManagerProvider);
@@ -117,18 +145,41 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                             letterSpacing: 0.3,
                           ),
                         ),
-                        ElevatedButton.icon(
-                          onPressed: () => _showPairDeviceDialog(context),
-                          icon: const Icon(Icons.add_link_rounded, size: 18),
-                          label: const Text('Pair Device'),
-                          style: ElevatedButton.styleFrom(
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const QrScannerScreen()),
+                                );
+                              },
+                              icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                              label: const Text('Scan QR'),
+                              style: ElevatedButton.styleFrom(
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              onPressed: () => _showPairDeviceDialog(context),
+                              icon: const Icon(Icons.add_link_rounded, size: 18),
+                              label: const Text('Pair Device'),
+                              style: ElevatedButton.styleFrom(
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -330,7 +381,7 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Manual Device Connection',
+            'Manual Device Connection & Pairing',
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.bold,
             ),
@@ -361,6 +412,73 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                     isDense: true,
                   ),
                 ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _pairCodeController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Pairing Code (6-digit)',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.link_rounded),
+                onPressed: () async {
+                  final ip = _ipController.text.trim();
+                  final code = _pairCodeController.text.trim();
+                  if (ip.isNotEmpty && code.isNotEmpty) {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                    
+                    bool success = false;
+                    try {
+                      final pairing = ref.read(devicePairingServiceProvider);
+                      success = await pairing.initiatePairing(ip, code);
+                    } catch (_) {
+                      success = false;
+                    } finally {
+                      if (context.mounted) {
+                        Navigator.pop(context); // Close progress dialog
+                      }
+                    }
+                    
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(success 
+                              ? 'Device paired successfully!' 
+                              : 'Pairing failed. Check IP, Port, and Code.'),
+                          backgroundColor: success ? Colors.green : Colors.red,
+                        ),
+                      );
+                    }
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter IP, Port, and 6-digit Pairing Code'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+                label: const Text('Pair'),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
@@ -982,37 +1100,121 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
   }
 
   void _showPairDeviceDialog(BuildContext context) {
-    final randCode = (100000 + Random().nextInt(900000)).toString();
     showDialog(
       context: context,
-      builder: (context) => _PairingCodeDialog(code: randCode),
+      builder: (context) => const _PairingCodeDialog(),
+    );
+  }
+
+  void _showApprovalDialog(BuildContext context, PendingPairingRequest request) {
+    final deviceId = request.device.id;
+    if (_shownDialogDeviceIds.contains(deviceId)) return;
+    _shownDialogDeviceIds.add(deviceId);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Pairing Request Received'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('A device named "${request.device.name}" wants to pair with you.', style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Text('Platform: ${request.device.platform}'),
+            Text('Model: ${request.device.deviceModel}'),
+            Text('OS Version: ${request.device.osVersion}'),
+            const SizedBox(height: 16),
+            const Text('Do you trust this device and want to connect?'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              _shownDialogDeviceIds.remove(deviceId);
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.pop(context);
+              await ref.read(devicePairingServiceProvider).blockRequest(deviceId);
+              messenger.showSnackBar(
+                const SnackBar(content: Text('Device Blocked.')),
+              );
+            },
+            child: Text('Block', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ),
+          TextButton(
+            onPressed: () async {
+              _shownDialogDeviceIds.remove(deviceId);
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.pop(context);
+              await ref.read(devicePairingServiceProvider).rejectRequest(deviceId);
+              messenger.showSnackBar(
+                const SnackBar(content: Text('Request Rejected.')),
+              );
+            },
+            child: const Text('Reject'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              _shownDialogDeviceIds.remove(deviceId);
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.pop(context);
+              await ref.read(devicePairingServiceProvider).approveRequest(deviceId);
+              messenger.showSnackBar(
+                const SnackBar(content: Text('Device Approved & Trusted!')),
+              );
+            },
+            child: const Text('Approve & Trust'),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _PairingCodeDialog extends StatefulWidget {
-  final String code;
-
-  const _PairingCodeDialog({required this.code});
+class _PairingCodeDialog extends ConsumerStatefulWidget {
+  const _PairingCodeDialog();
 
   @override
-  State<_PairingCodeDialog> createState() => _PairingCodeDialogState();
+  ConsumerState<_PairingCodeDialog> createState() => _PairingCodeDialogState();
 }
 
-class _PairingCodeDialogState extends State<_PairingCodeDialog> {
+class _PairingCodeDialogState extends ConsumerState<_PairingCodeDialog> {
   int _secondsRemaining = 60;
   Timer? _timer;
+  String _code = '';
+  String _qrPayload = '';
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _initPairing();
+  }
+
+  void _initPairing() async {
+    final pairing = ref.read(devicePairingServiceProvider);
+    final code = pairing.startHostingPairing();
+    final payload = await pairing.getPairingQrPayload();
+    
+    if (mounted) {
+      setState(() {
+        _code = code;
+        _qrPayload = payload;
+        _isLoading = false;
+      });
+    }
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsRemaining > 0) {
-        setState(() {
-          _secondsRemaining--;
-        });
+        if (mounted) {
+          setState(() {
+            _secondsRemaining--;
+          });
+        }
       } else {
         _timer?.cancel();
+        ref.read(devicePairingServiceProvider).stopHostingPairing();
         if (mounted) Navigator.pop(context);
       }
     });
@@ -1021,12 +1223,22 @@ class _PairingCodeDialogState extends State<_PairingCodeDialog> {
   @override
   void dispose() {
     _timer?.cancel();
+    ref.read(devicePairingServiceProvider).stopHostingPairing();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    if (_isLoading) {
+      return const AlertDialog(
+        content: SizedBox(
+          height: 100,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: const Text(
@@ -1034,68 +1246,84 @@ class _PairingCodeDialogState extends State<_PairingCodeDialog> {
         textAlign: TextAlign.center,
         style: TextStyle(fontWeight: FontWeight.bold),
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Scan the QR code or enter the pairing code on the other device.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Simulated QR Code
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: theme.colorScheme.outlineVariant),
-            ),
-            width: 160,
-            height: 160,
-            child: CustomPaint(
-              painter: QrCodeSimulatedPainter(widget.code),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Pair Code
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              widget.code,
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                letterSpacing: 8,
-                color: theme.colorScheme.primary,
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Scan the QR code or enter the pairing code on the other device.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
-          // Expiry Countdown
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.timer_outlined, size: 16, color: theme.colorScheme.error),
-              const SizedBox(width: 6),
-              Text(
-                'Expires in $_secondsRemaining seconds',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.error,
+            // Real QR Code using qr_flutter
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: theme.colorScheme.outlineVariant),
+              ),
+              width: 180,
+              height: 180,
+              child: QrImageView(
+                data: _qrPayload,
+                version: QrVersions.auto,
+                size: 160,
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Copy Payload Button for simulation testing
+            TextButton.icon(
+              icon: const Icon(Icons.copy_rounded, size: 16),
+              label: const Text('Copy QR Payload'),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: _qrPayload));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('QR Payload copied to clipboard!')),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+
+            // Pair Code
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                _code,
+                style: theme.textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
+                  letterSpacing: 8,
+                  color: theme.colorScheme.primary,
                 ),
               ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 16),
+
+            // Expiry Countdown
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.timer_outlined, size: 16, color: theme.colorScheme.error),
+                const SizedBox(width: 6),
+                Text(
+                  'Expires in $_secondsRemaining seconds',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
       actions: [
         Center(
@@ -1109,58 +1337,173 @@ class _PairingCodeDialogState extends State<_PairingCodeDialog> {
   }
 }
 
-class QrCodeSimulatedPainter extends CustomPainter {
-  final String code;
-  QrCodeSimulatedPainter(this.code);
+class QrScannerScreen extends ConsumerStatefulWidget {
+  const QrScannerScreen({super.key});
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.black
-      ..style = PaintingStyle.fill;
-    
-    final blockSize = size.width / 15;
-    
-    // Top-left finder pattern
-    canvas.drawRect(Rect.fromLTWH(0, 0, blockSize * 4, blockSize * 4), paint);
-    paint.color = Colors.white;
-    canvas.drawRect(Rect.fromLTWH(blockSize, blockSize, blockSize * 2, blockSize * 2), paint);
-    paint.color = Colors.black;
-    canvas.drawRect(Rect.fromLTWH(blockSize * 1.5, blockSize * 1.5, blockSize, blockSize), paint);
-    
-    // Top-right finder pattern
-    canvas.drawRect(Rect.fromLTWH(size.width - blockSize * 4, 0, blockSize * 4, blockSize * 4), paint);
-    paint.color = Colors.white;
-    canvas.drawRect(Rect.fromLTWH(size.width - blockSize * 3, blockSize, blockSize * 2, blockSize * 2), paint);
-    paint.color = Colors.black;
-    canvas.drawRect(Rect.fromLTWH(size.width - blockSize * 2.5, blockSize * 1.5, blockSize, blockSize), paint);
+  ConsumerState<QrScannerScreen> createState() => _QrScannerScreenState();
+}
 
-    // Bottom-left finder pattern
-    canvas.drawRect(Rect.fromLTWH(0, size.height - blockSize * 4, blockSize * 4, blockSize * 4), paint);
-    paint.color = Colors.white;
-    canvas.drawRect(Rect.fromLTWH(blockSize, size.height - blockSize * 3, blockSize * 2, blockSize * 2), paint);
-    paint.color = Colors.black;
-    canvas.drawRect(Rect.fromLTWH(blockSize * 1.5, size.height - blockSize * 2.5, blockSize, blockSize), paint);
+class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
+  final TextEditingController _pasteController = TextEditingController();
+  bool _isProcessing = false;
+  MobileScannerController cameraController = MobileScannerController();
 
-    // Seeded random matrix
-    final rand = Random(code.hashCode);
-    paint.color = Colors.black;
-    for (int r = 0; r < 15; r++) {
-      for (int c = 0; c < 15; c++) {
-        if (r < 5 && c < 5) continue;
-        if (r < 5 && c > 9) continue;
-        if (r > 9 && c < 5) continue;
+  @override
+  void dispose() {
+    _pasteController.dispose();
+    cameraController.dispose();
+    super.dispose();
+  }
+
+  void _processPayload(String payload) async {
+    if (_isProcessing) return;
+    setState(() {
+      _isProcessing = true;
+    });
+
+    try {
+      final data = json.decode(payload) as Map<String, dynamic>;
+      final ip = data['ip'] as String;
+      final code = data['code'] as String;
+      final name = data['name'] as String? ?? 'Remote Device';
+
+      if (ip.isNotEmpty && code.isNotEmpty) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(child: CircularProgressIndicator()),
+        );
+
+        final messenger = ScaffoldMessenger.of(context);
+        final navigator = Navigator.of(context);
         
-        if (rand.nextBool()) {
-          canvas.drawRect(
-            Rect.fromLTWH(c * blockSize, r * blockSize, blockSize + 0.5, blockSize + 0.5),
-            paint,
-          );
+        bool success = false;
+        try {
+          success = await ref.read(devicePairingServiceProvider).initiatePairing(ip, code);
+        } catch (_) {
+          success = false;
+        } finally {
+          if (mounted) {
+            navigator.pop(); // Close progress dialog
+          }
         }
+
+        if (mounted) {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(success ? 'Successfully paired with $name!' : 'Pairing with $name failed.'),
+              backgroundColor: success ? Colors.green : Colors.red,
+            ),
+          );
+          if (success) {
+            navigator.pop(true); // Return success to previous screen
+          } else {
+            setState(() {
+              _isProcessing = false;
+            });
+          }
+        }
+      } else {
+        throw Exception('Invalid payload fields');
+      }
+    } catch (e) {
+      setState(() {
+        _isProcessing = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invalid QR Code. Please check the content and try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isMobile = Platform.isAndroid || Platform.isIOS;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Scan Pairing QR Code'),
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            children: [
+              if (isMobile) ...[
+                Container(
+                  height: 300,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: theme.colorScheme.primary, width: 2),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: MobileScanner(
+                    controller: cameraController,
+                    onDetect: (capture) {
+                      final List<Barcode> barcodes = capture.barcodes;
+                      for (final barcode in barcodes) {
+                        final rawValue = barcode.rawValue;
+                        if (rawValue != null) {
+                          cameraController.stop();
+                          _processPayload(rawValue);
+                          break;
+                        }
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('Point camera at the QR code on the other device'),
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 24),
+              ],
+              
+              // Fallback / Simulation / Desktop Entry
+              Text(
+                'Simulate QR Scan (For Desktop/Testing)',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'If camera scanning is not supported on this platform, copy the QR payload JSON from the other device and paste it below:',
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _pasteController,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'QR Code JSON Payload',
+                  border: OutlineInputBorder(),
+                  hintText: '{"ip":"...","port":...,"code":"...","id":"...","name":"..."}',
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () {
+                  final text = _pasteController.text.trim();
+                  if (text.isNotEmpty) {
+                    _processPayload(text);
+                  }
+                },
+                icon: const Icon(Icons.qr_code_scanner_rounded),
+                label: const Text('Simulate Scan'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

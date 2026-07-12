@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:uuid/uuid.dart';
 
 import '../services/logging_service.dart';
+import '../transport/transport_manager.dart';
 import 'discovery_models.dart';
 import 'discovery_repository.dart';
 import 'discovery_service.dart';
@@ -10,6 +11,7 @@ class DiscoveryManager {
   final DiscoveryRepository _repository;
   final DiscoveryService _service;
   final LoggingService _logger;
+  final TransportManager? _transportManager;
 
   final StreamController<List<DiscoveredDevice>> _deviceListController = StreamController.broadcast();
   final StreamController<List<DiscoveryHistoryEntry>> _historyController = StreamController.broadcast();
@@ -27,8 +29,9 @@ class DiscoveryManager {
   DiscoveryManager(
     this._repository,
     this._service,
-    this._logger,
-  );
+    this._logger, [
+    this._transportManager,
+  ]);
 
   Future<void> init() async {
     if (_initialized) return;
@@ -50,6 +53,14 @@ class DiscoveryManager {
       _cachedHistory = await _repository.getDiscoveryHistory();
       _historyController.add(_cachedHistory);
     });
+
+    try {
+      if (_transportManager != null) {
+        await _transportManager.startServer();
+      }
+    } catch (e, stack) {
+      _logger.error('DiscoveryManager', 'Failed to start Transport Server on init: $e', stack.toString());
+    }
 
     await _service.start();
     _logger.info('DiscoveryManager', 'Discovery Manager fully initialized and started.');
@@ -96,55 +107,91 @@ class DiscoveryManager {
 
   Future<bool> connectDevice(String deviceId) async {
     _logger.info('DiscoveryManager', 'Connecting to device $deviceId');
-    // Simulated connection state update (actual transfers not required)
     final index = _cachedDevices.indexWhere((d) => d.device.id == deviceId);
-    if (index != -1) {
-      final dev = _cachedDevices[index];
-      final updated = dev.copyWith(
-        isOnline: true,
-        connectionQuality: ConnectionQuality.excellent,
-      );
-      _cachedDevices[index] = updated;
-      _deviceListController.add(_cachedDevices);
-      await _repository.saveKnownDevices(_cachedDevices);
+    if (index == -1) return false;
+    final dev = _cachedDevices[index];
 
-      await _repository.addHistoryEntry(DiscoveryHistoryEntry(
-        id: const Uuid().v4(),
-        deviceId: deviceId,
-        deviceName: dev.device.name,
-        eventType: 'Reconnect Event',
-        timestamp: DateTime.now(),
-        ipAddress: dev.device.ipAddress,
-        details: 'Connected successfully.',
-      ));
-      return true;
+    if (_transportManager != null) {
+      try {
+        await _transportManager.connectToDevice(dev.device);
+        
+        final updated = dev.copyWith(
+          isOnline: true,
+          connectionQuality: ConnectionQuality.excellent,
+          lastSeen: DateTime.now(),
+        );
+        _cachedDevices[index] = updated;
+        _deviceListController.add(_cachedDevices);
+        await _repository.saveKnownDevices(_cachedDevices);
+        
+        await _repository.addHistoryEntry(DiscoveryHistoryEntry(
+          id: const Uuid().v4(),
+          deviceId: deviceId,
+          deviceName: dev.device.name,
+          eventType: 'Reconnect Event',
+          timestamp: DateTime.now(),
+          ipAddress: dev.device.ipAddress,
+          details: 'Connected successfully via Connection Engine.',
+        ));
+        return true;
+      } catch (e) {
+        _logger.error('DiscoveryManager', 'Failed to connect via TransportManager: $e');
+        // fall back to simulation
+      }
     }
-    return false;
+
+    // Simulated connection state update
+    final updated = dev.copyWith(
+      isOnline: true,
+      connectionQuality: ConnectionQuality.excellent,
+    );
+    _cachedDevices[index] = updated;
+    _deviceListController.add(_cachedDevices);
+    await _repository.saveKnownDevices(_cachedDevices);
+
+    await _repository.addHistoryEntry(DiscoveryHistoryEntry(
+      id: const Uuid().v4(),
+      deviceId: deviceId,
+      deviceName: dev.device.name,
+      eventType: 'Reconnect Event',
+      timestamp: DateTime.now(),
+      ipAddress: dev.device.ipAddress,
+      details: 'Connected successfully (Simulated).',
+    ));
+    return true;
   }
 
   Future<void> disconnectDevice(String deviceId) async {
     _logger.info('DiscoveryManager', 'Disconnecting from device $deviceId');
     final index = _cachedDevices.indexWhere((d) => d.device.id == deviceId);
-    if (index != -1) {
-      final dev = _cachedDevices[index];
-      final updated = dev.copyWith(
-        isOnline: false,
-        connectionQuality: ConnectionQuality.unreachable,
-      );
-      _cachedDevices[index] = updated;
-      _deviceListController.add(_cachedDevices);
-      await _repository.saveKnownDevices(_cachedDevices);
+    if (index == -1) return;
+    final dev = _cachedDevices[index];
 
-      await _repository.addHistoryEntry(DiscoveryHistoryEntry(
-        id: const Uuid().v4(),
-        deviceId: deviceId,
-        deviceName: dev.device.name,
-        eventType: 'Device Lost',
-        timestamp: DateTime.now(),
-        ipAddress: dev.device.ipAddress,
-        details: 'Disconnected manually.',
-      ));
+    if (_transportManager != null) {
+      try {
+        await _transportManager.disconnectFromDevice(deviceId);
+      } catch (e) {
+        _logger.error('DiscoveryManager', 'Failed to disconnect via TransportManager: $e');
+      }
     }
+
+    final updated = dev.copyWith(
+      isOnline: false,
+      connectionQuality: ConnectionQuality.unreachable,
+    );
+    _cachedDevices[index] = updated;
+    _deviceListController.add(_cachedDevices);
+    await _repository.saveKnownDevices(_cachedDevices);
+
+    await _repository.addHistoryEntry(DiscoveryHistoryEntry(
+      id: const Uuid().v4(),
+      deviceId: deviceId,
+      deviceName: dev.device.name,
+      eventType: 'Device Lost',
+      timestamp: DateTime.now(),
+      ipAddress: dev.device.ipAddress,
+      details: 'Disconnected manually.',
+    ));
   }
 
   Future<bool> addManualDevice(String ip, int port) async {

@@ -18,9 +18,14 @@ class DeviceIdentity {
   late final DateTime _createdAt;
   late DateTime _lastSeen;
   
+  bool _isInitialized = false;
+  
   DeviceIdentity(this._db, this._storageProvider);
 
   Future<void> init() async {
+    if (_isInitialized) return;
+    _isInitialized = true;
+
     // 1. Load or generate unique Device UUID
     String? storedUuid = _db.getValue('self_device_uuid');
     if (storedUuid == null) {

@@ -1,10 +1,14 @@
+// ignore_for_file: prefer_initializing_formals
+
 import 'dart:async';
 import 'dart:io';
 import 'secure_channel.dart';
 import 'transport_models.dart';
 
 class ConnectionService {
-  final String _pairingToken;
+  final String? _pairingToken;
+  final FutureOr<String?> Function(String remoteDeviceId)? _tokenResolver;
+  final String _selfDeviceId;
   Function(SecureChannel channel)? onNewSecureChannel;
   final Function(String message)? onLog;
   final void Function(SecureChannel channel, TransportPacket packet)? onPacketReceived;
@@ -13,14 +17,17 @@ class ConnectionService {
   final List<SecureChannel> _activeChannels = [];
   bool _isListening = false;
 
-  static const int defaultPort = 8321;
+  static const int defaultPort = 8322;
 
   ConnectionService(
-    this._pairingToken, {
+    this._selfDeviceId, {
+    String? pairingToken,
+    FutureOr<String?> Function(String remoteDeviceId)? tokenResolver,
     this.onNewSecureChannel,
     this.onLog,
     this.onPacketReceived,
-  });
+  })  : _pairingToken = pairingToken,
+        _tokenResolver = tokenResolver;
 
   bool get isListening => _isListening;
   List<SecureChannel> get activeChannels => List.unmodifiable(_activeChannels);
@@ -34,18 +41,21 @@ class ConnectionService {
       _log('Connection Server listening on port $port');
 
       _serverSocket!.listen((socket) {
-        _log('Accepted raw connection from ${socket.remoteAddress.address}:${socket.remotePort}');
+        final remoteIp = socket.remoteAddress.address;
+        _log('Accepted raw connection from $remoteIp:${socket.remotePort}');
         
         late final SecureChannel channel;
         channel = SecureChannel(
           socket,
           _pairingToken,
           isClient: false,
+          selfDeviceId: _selfDeviceId,
+          tokenResolver: _tokenResolver,
           onError: (err) {
             _log('Server channel security error: $err');
           },
           onDisconnected: () {
-            _log('Server channel from ${socket.remoteAddress.address} disconnected.');
+            _log('Server channel from $remoteIp disconnected.');
             _activeChannels.removeWhere((c) => c.socket == socket);
           },
           onPacketReceived: (packet) {
@@ -90,6 +100,7 @@ class ConnectionService {
       socket,
       _pairingToken,
       isClient: true,
+      selfDeviceId: _selfDeviceId,
       onError: (err) {
         _log('Client channel security error: $err');
       },
@@ -121,9 +132,9 @@ class ConnectionService {
     }
   }
 
-  void stop() {
+  Future<void> stop() async {
     _isListening = false;
-    _serverSocket?.close();
+    await _serverSocket?.close();
     _serverSocket = null;
     
     for (final channel in List.from(_activeChannels)) {

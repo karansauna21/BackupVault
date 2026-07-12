@@ -15,35 +15,61 @@ class DeviceRepository {
   }
 
   Future<List<DeviceModel>> getDevices() async {
-    if (_driftDb != null) {
-      try {
-        final records = await _driftDb.pairedDevicesDao.getAllDevices();
-        return records.map((record) => DeviceModel(
-          id: record.deviceUuid,
-          name: record.deviceName,
-          platform: record.platform,
-          osVersion: record.osVersion,
-          appVersion: record.appVersion,
-          deviceModel: record.deviceModel,
-          pairingDate: record.createdAt,
-          lastSeen: record.lastSeen,
-          trustStatus: record.status,
-          connectionStatus: 'Offline',
-          ipAddress: '127.0.0.1',
-          port: 8321,
-          storageInfo: 'Unknown',
-        )).toList();
-      } catch (_) {}
-    }
-
+    List<DeviceModel> jsonDevices = [];
     try {
       final jsonStr = _db.getValue('paired_devices');
       if (jsonStr != null) {
         final decoded = json.decode(jsonStr) as List<dynamic>;
-        return decoded.map((e) => DeviceModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+        jsonDevices = decoded.map((e) => DeviceModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
       }
     } catch (_) {}
-    return [];
+
+    if (_driftDb != null) {
+      try {
+        final records = await _driftDb.pairedDevicesDao.getAllDevices();
+        final List<DeviceModel> merged = [];
+        for (final record in records) {
+          final jsonDev = jsonDevices.firstWhere(
+            (d) => d.id == record.deviceUuid,
+            orElse: () => DeviceModel(
+              id: record.deviceUuid,
+              name: record.deviceName,
+              platform: record.platform,
+              osVersion: record.osVersion,
+              appVersion: record.appVersion,
+              deviceModel: record.deviceModel,
+              pairingDate: record.createdAt,
+              lastSeen: record.lastSeen,
+              trustStatus: record.status,
+              connectionStatus: 'Offline',
+              ipAddress: '127.0.0.1',
+              port: 8321,
+              storageInfo: 'Unknown',
+            ),
+          );
+          merged.add(DeviceModel(
+            id: record.deviceUuid,
+            name: record.deviceName,
+            platform: record.platform,
+            osVersion: record.osVersion,
+            appVersion: record.appVersion,
+            deviceModel: record.deviceModel,
+            pairingDate: record.createdAt,
+            lastSeen: record.lastSeen,
+            trustStatus: record.status,
+            connectionStatus: jsonDev.connectionStatus,
+            ipAddress: jsonDev.ipAddress,
+            port: jsonDev.port,
+            storageInfo: jsonDev.storageInfo,
+            pairingToken: jsonDev.pairingToken,
+            pairingTokenExpiry: jsonDev.pairingTokenExpiry,
+          ));
+        }
+        return merged;
+      } catch (_) {}
+    }
+
+    return jsonDevices;
   }
 
   Future<void> saveDevices(List<DeviceModel> devices) async {
@@ -147,29 +173,6 @@ class DeviceRepository {
   }
 
   Future<DeviceModel?> getDeviceById(String id) async {
-    if (_driftDb != null) {
-      try {
-        final record = await _driftDb.pairedDevicesDao.getDeviceByUuid(id);
-        if (record != null) {
-          return DeviceModel(
-            id: record.deviceUuid,
-            name: record.deviceName,
-            platform: record.platform,
-            osVersion: record.osVersion,
-            appVersion: record.appVersion,
-            deviceModel: record.deviceModel,
-            pairingDate: record.createdAt,
-            lastSeen: record.lastSeen,
-            trustStatus: record.status,
-            connectionStatus: 'Offline',
-            ipAddress: '127.0.0.1',
-            port: 8321,
-            storageInfo: 'Unknown',
-          );
-        }
-      } catch (_) {}
-    }
-
     final current = await getDevices();
     for (final d in current) {
       if (d.id == id) return d;

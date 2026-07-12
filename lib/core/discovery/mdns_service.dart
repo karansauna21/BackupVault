@@ -51,13 +51,22 @@ class MdnsService {
         reusePort: true,
       );
 
-      // Join multicast group
-      _socket!.joinMulticast(InternetAddress(multicastAddress));
+      // Join multicast group on all available interfaces
+      try {
+        final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4);
+        for (final interface in interfaces) {
+          try {
+            _socket!.joinMulticast(InternetAddress(multicastAddress), interface);
+          } catch (_) {}
+        }
+      } catch (e) {
+        _socket!.joinMulticast(InternetAddress(multicastAddress));
+      }
       _socket!.multicastLoopback = true;
       _isListening = true;
-
+ 
       _logger.info('MdnsService', 'Started mDNS listener on port $mdnsPort');
-
+ 
       _socket!.listen((event) {
         if (event == RawSocketEvent.read) {
           final datagram = _socket!.receive();
@@ -66,7 +75,7 @@ class MdnsService {
           }
         }
       });
-
+ 
       // Start periodic query
       startQuerying();
     } catch (e) {
@@ -74,7 +83,16 @@ class MdnsService {
       // Fallback: Bind to port 0 (ephemeral port) to allow sending queries and receiving unicast responses
       try {
         _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
-        _socket!.joinMulticast(InternetAddress(multicastAddress));
+        try {
+          final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4);
+          for (final interface in interfaces) {
+            try {
+              _socket!.joinMulticast(InternetAddress(multicastAddress), interface);
+            } catch (_) {}
+          }
+        } catch (ex) {
+          _socket!.joinMulticast(InternetAddress(multicastAddress));
+        }
         _isListening = true;
         _socket!.listen((event) {
           if (event == RawSocketEvent.read) {

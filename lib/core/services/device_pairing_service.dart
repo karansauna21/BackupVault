@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:uuid/uuid.dart';
@@ -41,6 +42,10 @@ class DevicePairingService {
   // Active pairing timers
   final Map<String, Timer> _expirationTimers = {};
 
+  // Active hosting code
+  String? _activePairCode;
+  DateTime? _activePairCodeExpiry;
+
   // Callback to notify UI of new incoming request
   void Function(PendingPairingRequest request)? onIncomingRequest;
 
@@ -57,6 +62,58 @@ class DevicePairingService {
       _pendingRequestsController.stream;
 
   List<PendingPairingRequest> get pendingRequests => List.unmodifiable(_pendingRequests);
+
+  String? get activePairCode => _activePairCode;
+
+  /// Starts hosting pairing, generates a 6-digit code and starts the expiry timer.
+  String startHostingPairing() {
+    _activePairCode = generatePairCode();
+    _activePairCodeExpiry = DateTime.now().add(const Duration(seconds: 60));
+    
+    // Clear the active code after 60 seconds
+    Timer(const Duration(seconds: 60), () {
+      if (_activePairCodeExpiry != null && DateTime.now().isAfter(_activePairCodeExpiry!)) {
+        _activePairCode = null;
+        _activePairCodeExpiry = null;
+      }
+    });
+    
+    return _activePairCode!;
+  }
+
+  void stopHostingPairing() {
+    _activePairCode = null;
+    _activePairCodeExpiry = null;
+  }
+
+  /// Estimates the local IP address
+  Future<String> getLocalIpAddress() async {
+    try {
+      final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4);
+      for (final interface in interfaces) {
+        for (final addr in interface.addresses) {
+          if (!addr.isLoopback) {
+            return addr.address;
+          }
+        }
+      }
+    } catch (_) {}
+    return '127.0.0.1'; // Fallback
+  }
+
+  /// Encodes host pairing information as a JSON string for QR Code
+  Future<String> getPairingQrPayload() async {
+    final ip = await getLocalIpAddress();
+    final selfModel = await _identity.toModel(ip: ip, port: ConnectionManager.tcpPort);
+    final payload = {
+      'ip': ip,
+      'port': ConnectionManager.tcpPort,
+      'code': _activePairCode ?? '',
+      'id': selfModel.id,
+      'name': selfModel.name,
+    };
+    return json.encode(payload);
+  }
 
   /// Generates a random 6-digit pair code.
   String generatePairCode() {
@@ -103,6 +160,7 @@ class DevicePairingService {
         pairingToken: response['pairingToken'] as String?,
       );
 
+      // Save to SQLite
       await _repository.addOrUpdateDevice(targetDevice);
       await _logger.info('DeviceManager', 'Device "${targetDevice.name}" added successfully (Approved)');
       return true;
@@ -121,7 +179,7 @@ class DevicePairingService {
       final pairCode = requestJson['pairCode'] as String;
       final pairingToken = requestJson['pairingToken'] as String;
 
-      // 1. Check if blocked
+      // 1. Duplicate & Block status check
       final existing = await _repository.getDeviceById(senderDevice.id);
       if (existing != null && existing.trustStatus == 'Blocked') {
         await _logger.warning('DeviceManager', 'Blocked connection attempt from ${senderDevice.name} (${senderDevice.id})');
@@ -131,9 +189,28 @@ class DevicePairingService {
         return;
       }
 
-      await _logger.info('DeviceManager', 'Received pairing request from ${senderDevice.name} with code $pairCode');
+      // 2. Pair code verification (including expiration)
+      final now = DateTime.now();
+      final isCodeValid = _activePairCode != null &&
+          _activePairCode == pairCode &&
+          _activePairCodeExpiry != null &&
+          now.isBefore(_activePairCodeExpiry!);
 
-      // 2. Add pending request
+      if (!isCodeValid) {
+        await _logger.warning('DeviceManager', 'Pairing request rejected: Invalid or expired pairing code "$pairCode"');
+        if (socket != null) {
+          _connectionManager.respondToRequest(socket, {'status': 'rejected', 'reason': 'invalid_code'});
+        }
+        return;
+      }
+
+      await _logger.info('DeviceManager', 'Received valid pairing request from ${senderDevice.name} with code $pairCode');
+
+      // Check if there is already a pending request for this device and remove it
+      _pendingRequests.removeWhere((r) => r.device.id == senderDevice.id);
+      _expirationTimers.remove(senderDevice.id)?.cancel();
+
+      // 3. Add pending request
       final request = PendingPairingRequest(
         device: senderDevice,
         pairCode: pairCode,
@@ -146,7 +223,7 @@ class DevicePairingService {
       _pendingRequests.add(request);
       _pendingRequestsController.add(_pendingRequests);
 
-      // 3. Set automatic expiration timer (60 seconds)
+      // 4. Set automatic expiration timer (60 seconds)
       final timer = Timer(const Duration(seconds: 60), () {
         _handleRequestExpiration(request.device.id);
       });
@@ -202,7 +279,7 @@ class DevicePairingService {
       _connectionManager.respondToRequest(req.socket!, response);
     }
 
-    // Add to trusted database
+    // Add to trusted database in SQLite
     final trustedDevice = req.device.copyWith(
       trustStatus: 'Trusted',
       connectionStatus: 'Online',
@@ -236,8 +313,42 @@ class DevicePairingService {
     await _logger.info('DeviceManager', 'Rejected pairing request from ${req.device.name}');
   }
 
+  /// Block request/device completely
+  Future<void> blockRequest(String deviceId) async {
+    final index = _pendingRequests.indexWhere((r) => r.device.id == deviceId);
+    PendingPairingRequest? req;
+    if (index != -1) {
+      req = _pendingRequests.removeAt(index);
+      _pendingRequestsController.add(_pendingRequests);
+      _expirationTimers.remove(deviceId)?.cancel();
+    }
+
+    final response = {
+      'type': 'pairing_response',
+      'status': 'blocked',
+    };
+
+    if (req?.socket != null) {
+      _connectionManager.respondToRequest(req!.socket!, response);
+    }
+
+    // Save as blocked in SQLite
+    final blockedDevice = (req != null ? req.device : await _repository.getDeviceById(deviceId))?.copyWith(
+      trustStatus: 'Blocked',
+      pairingDate: DateTime.now(),
+      lastSeen: DateTime.now(),
+    );
+
+    if (blockedDevice != null) {
+      await _repository.addOrUpdateDevice(blockedDevice);
+    }
+    await _logger.info('DeviceManager', 'Blocked device ID $deviceId');
+  }
+
   // Simulation support for testing
   void simulateIncomingRequest(DeviceModel sender, String code) {
+    _activePairCode = code;
+    _activePairCodeExpiry = DateTime.now().add(const Duration(seconds: 120));
     final payload = {
       'type': 'pairing_request',
       'device': sender.toJson(),

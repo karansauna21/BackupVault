@@ -6,6 +6,7 @@ class ReconnectService {
   final String targetIp;
   final int port;
   final String pairingToken;
+  final String selfDeviceId;
   final Function(SecureChannel newChannel) onReconnected;
   final Function() onReconnectFailed;
   final Function(String message)? onLog;
@@ -21,6 +22,7 @@ class ReconnectService {
     required this.targetIp,
     required this.port,
     required this.pairingToken,
+    required this.selfDeviceId,
     required this.onReconnected,
     required this.onReconnectFailed,
     this.onLog,
@@ -71,6 +73,7 @@ class ReconnectService {
         socket,
         pairingToken,
         isClient: true,
+        selfDeviceId: selfDeviceId,
         onError: (err) {
           _log('Handshake error during reconnect: $err');
         },

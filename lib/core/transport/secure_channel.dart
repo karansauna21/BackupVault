@@ -1,3 +1,5 @@
+// ignore_for_file: prefer_initializing_formals
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -9,7 +11,9 @@ import 'transport_models.dart';
 
 class SecureChannel {
   final Socket _socket;
-  final String _pairingToken;
+  final String? _pairingToken;
+  final FutureOr<String?> Function(String remoteDeviceId)? _tokenResolver;
+  final String _selfDeviceId;
   final bool isClient;
   final void Function(TransportPacket packet)? onPacketReceived;
   final void Function(String error)? onError;
@@ -35,15 +39,19 @@ class SecureChannel {
 
   String? _clientChallenge;
   String? _serverChallenge;
+  String? _resolvedPairingToken;
 
   SecureChannel(
     this._socket,
     this._pairingToken, {
     required this.isClient,
+    required String selfDeviceId,
+    FutureOr<String?> Function(String remoteDeviceId)? tokenResolver,
     this.onPacketReceived,
     this.onError,
     this.onDisconnected,
-  }) {
+  })  : _selfDeviceId = selfDeviceId,
+        _tokenResolver = tokenResolver {
     _connectionTime = DateTime.now();
     _socketSub = _socket.listen(
       _onData,
@@ -66,31 +74,50 @@ class SecureChannel {
 
   void _initiateHandshake() {
     _clientChallenge = const Uuid().v4();
+    final payloadString = '$_clientChallenge|$_selfDeviceId';
     final packet = TransportPacket(
       sessionId: 'handshake',
       type: PacketType.handshakeChallenge,
       packetIndex: 0,
       totalPackets: 1,
-      payloadLength: _clientChallenge!.length,
-      payload: Uint8List.fromList(utf8.encode(_clientChallenge!)),
-      checksum: sha256.convert(utf8.encode(_clientChallenge!)).toString(),
+      payloadLength: payloadString.length,
+      payload: Uint8List.fromList(utf8.encode(payloadString)),
+      checksum: sha256.convert(utf8.encode(payloadString)).toString(),
       timestampMs: DateTime.now().millisecondsSinceEpoch,
     );
     _sendPacketDirect(packet);
   }
 
-  void _handleHandshakeChallenge(TransportPacket packet) {
+  Future<void> _handleHandshakeChallenge(TransportPacket packet) async {
     if (isClient) return;
 
-    _clientChallenge = utf8.decode(packet.payload);
+    final challengeAndId = utf8.decode(packet.payload);
+    final parts = challengeAndId.split('|');
+    _clientChallenge = parts[0];
+    final remoteDeviceId = parts.length > 1 ? parts[1] : '';
+
     _serverChallenge = const Uuid().v4();
 
+    String? resolvedToken = '';
+    if (_tokenResolver != null && remoteDeviceId.isNotEmpty) {
+      resolvedToken = await _tokenResolver(remoteDeviceId);
+    } else {
+      resolvedToken = _pairingToken;
+    }
+
+    if (resolvedToken == null || resolvedToken.isEmpty) {
+      _failConnection('No pairing token found for device: $remoteDeviceId');
+      return;
+    }
+
+    _resolvedPairingToken = resolvedToken;
+
     // Derive Session Key: sha256(pairingToken + clientChallenge + serverChallenge)
-    final keyBytes = sha256.convert(utf8.encode(_pairingToken + _clientChallenge! + _serverChallenge!)).bytes;
+    final keyBytes = sha256.convert(utf8.encode(resolvedToken + _clientChallenge! + _serverChallenge!)).bytes;
     _sessionKey = enc.Key(Uint8List.fromList(keyBytes));
 
     // Sign client challenge to prove server knows pairing token
-    final signature = sha256.convert(utf8.encode(_pairingToken + _clientChallenge!)).toString();
+    final signature = sha256.convert(utf8.encode(resolvedToken + _clientChallenge!)).toString();
     final responsePayload = '$_serverChallenge|$signature';
 
     final responsePacket = TransportPacket(
@@ -119,19 +146,21 @@ class SecureChannel {
     _serverChallenge = parts[0];
     final serverSignature = parts[1];
 
+    final tokenToUse = _pairingToken ?? '';
+
     // Verify server identity
-    final expectedSignature = sha256.convert(utf8.encode(_pairingToken + _clientChallenge!)).toString();
+    final expectedSignature = sha256.convert(utf8.encode(tokenToUse + _clientChallenge!)).toString();
     if (serverSignature != expectedSignature) {
       _failConnection('Server authentication failed (Signature Mismatch)');
       return;
     }
 
     // Derive Session Key
-    final keyBytes = sha256.convert(utf8.encode(_pairingToken + _clientChallenge! + _serverChallenge!)).bytes;
+    final keyBytes = sha256.convert(utf8.encode(tokenToUse + _clientChallenge! + _serverChallenge!)).bytes;
     _sessionKey = enc.Key(Uint8List.fromList(keyBytes));
 
     // Sign server challenge to prove client knows pairing token
-    final clientSignature = sha256.convert(utf8.encode(_pairingToken + _serverChallenge!)).toString();
+    final clientSignature = sha256.convert(utf8.encode(tokenToUse + _serverChallenge!)).toString();
 
     final verifyPacket = TransportPacket(
       sessionId: 'handshake',
@@ -152,7 +181,8 @@ class SecureChannel {
     if (isClient) return;
 
     final clientSignature = utf8.decode(packet.payload);
-    final expectedSignature = sha256.convert(utf8.encode(_pairingToken + _serverChallenge!)).toString();
+    final tokenToUse = _resolvedPairingToken ?? _pairingToken ?? '';
+    final expectedSignature = sha256.convert(utf8.encode(tokenToUse + _serverChallenge!)).toString();
 
     if (clientSignature != expectedSignature) {
       _failConnection('Client authentication failed (Signature Mismatch)');

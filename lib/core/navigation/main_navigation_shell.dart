@@ -152,96 +152,109 @@ class MainNavigationShell extends StatelessWidget {
       body: Row(
         children: [
           if (!isMobile) ...[
-            NavigationRail(
-              selectedIndex: selectedIndex,
-              onDestinationSelected: (index) => _onItemTapped(index, context),
-              labelType: isTablet
-                  ? NavigationRailLabelType.none
-                  : NavigationRailLabelType.all,
-              leading: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24.0),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.cloud_sync_rounded,
-                      size: isTablet ? 32 : 40,
-                      color: Theme.of(context).colorScheme.primary,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
                     ),
-                    if (!isTablet) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'BackupVault',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
+                    child: IntrinsicHeight(
+                      child: NavigationRail(
+                        selectedIndex: selectedIndex,
+                        onDestinationSelected: (index) => _onItemTapped(index, context),
+                        labelType: isTablet
+                            ? NavigationRailLabelType.none
+                            : NavigationRailLabelType.all,
+                        leading: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24.0),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.cloud_sync_rounded,
+                                size: isTablet ? 32 : 40,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              if (!isTablet) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  'BackupVault',
+                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                        color: Theme.of(context).colorScheme.primary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        destinations: const [
+                          NavigationRailDestination(
+                            icon: Icon(Icons.grid_view_rounded),
+                            selectedIcon: Icon(Icons.grid_view_rounded),
+                            label: Text('Dashboard'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.backup_rounded),
+                            selectedIcon: Icon(Icons.backup_rounded),
+                            label: Text('Backup'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.restore_rounded),
+                            selectedIcon: Icon(Icons.restore_rounded),
+                            label: Text('Restore'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.folder_shared_rounded),
+                            selectedIcon: Icon(Icons.folder_shared_rounded),
+                            label: Text('Folders'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.analytics_rounded),
+                            selectedIcon: Icon(Icons.analytics_rounded),
+                            label: Text('Stats'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.receipt_long_rounded),
+                            selectedIcon: Icon(Icons.receipt_long_rounded),
+                            label: Text('Logs'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.settings_rounded),
+                            selectedIcon: Icon(Icons.settings_rounded),
+                            label: Text('Settings'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.search_rounded),
+                            selectedIcon: Icon(Icons.search_rounded),
+                            label: Text('Search'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.history_rounded),
+                            selectedIcon: Icon(Icons.history_rounded),
+                            label: Text('History'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.notifications_rounded),
+                            selectedIcon: Icon(Icons.notifications_active_rounded),
+                            label: Text('Alerts'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.auto_awesome_rounded),
+                            selectedIcon: Icon(Icons.auto_awesome_rounded),
+                            label: Text('Scheduler'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.devices_other_rounded),
+                            selectedIcon: Icon(Icons.devices_other_rounded),
+                            label: Text('Devices'),
+                          ),
+                        ],
                       ),
-                    ],
-                  ],
-                ),
-              ),
-              destinations: const [
-                NavigationRailDestination(
-                  icon: Icon(Icons.grid_view_rounded),
-                  selectedIcon: Icon(Icons.grid_view_rounded),
-                  label: Text('Dashboard'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.backup_rounded),
-                  selectedIcon: Icon(Icons.backup_rounded),
-                  label: Text('Backup'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.restore_rounded),
-                  selectedIcon: Icon(Icons.restore_rounded),
-                  label: Text('Restore'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.folder_shared_rounded),
-                  selectedIcon: Icon(Icons.folder_shared_rounded),
-                  label: Text('Folders'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.analytics_rounded),
-                  selectedIcon: Icon(Icons.analytics_rounded),
-                  label: Text('Stats'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.receipt_long_rounded),
-                  selectedIcon: Icon(Icons.receipt_long_rounded),
-                  label: Text('Logs'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.settings_rounded),
-                  selectedIcon: Icon(Icons.settings_rounded),
-                  label: Text('Settings'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.search_rounded),
-                  selectedIcon: Icon(Icons.search_rounded),
-                  label: Text('Search'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.history_rounded),
-                  selectedIcon: Icon(Icons.history_rounded),
-                  label: Text('History'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.notifications_rounded),
-                  selectedIcon: Icon(Icons.notifications_active_rounded),
-                  label: Text('Alerts'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.auto_awesome_rounded),
-                  selectedIcon: Icon(Icons.auto_awesome_rounded),
-                  label: Text('Scheduler'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.devices_other_rounded),
-                  selectedIcon: Icon(Icons.devices_other_rounded),
-                  label: Text('Devices'),
-                ),
-              ],
+                    ),
+                  ),
+                );
+              }
             ),
             const VerticalDivider(width: 1, thickness: 1),
           ],

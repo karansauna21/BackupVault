@@ -16,6 +16,7 @@ import androidx.annotation.NonNull
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import android.net.wifi.WifiManager
 import java.io.File
 
 class MainActivity : FlutterActivity() {
@@ -23,6 +24,34 @@ class MainActivity : FlutterActivity() {
     private val PICK_DIR_REQUEST_CODE = 4122
     private val MANAGE_STORAGE_REQUEST_CODE = 4123
     private val RUNTIME_PERMISSIONS_REQUEST_CODE = 4124
+    
+    private var multicastLock: WifiManager.MulticastLock? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        try {
+            val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            multicastLock = wifi.createMulticastLock("BackupVaultMulticastLock").apply {
+                setReferenceCounted(true)
+                acquire()
+            }
+        } catch (e: Exception) {
+            // Safe ignore
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            multicastLock?.let {
+                if (it.isHeld) {
+                    it.release()
+                }
+            }
+        } catch (e: Exception) {
+            // Safe ignore
+        }
+    }
     
     private var pendingResult: MethodChannel.Result? = null
 

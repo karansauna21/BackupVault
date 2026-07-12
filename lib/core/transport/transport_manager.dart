@@ -45,10 +45,22 @@ class TransportManager {
 
   // --- Server Lifecycle ---
 
-  Future<void> startServer(String selfDevicePairingToken) async {
-    await _logger.info('TransportManager', 'Starting Secure Transport Server...');
+  Future<String?> _resolveTokenForDevice(String remoteDeviceId) async {
+    final device = await _deviceRepository.getDeviceById(remoteDeviceId);
+    return device?.pairingToken;
+  }
+
+  // --- Server Lifecycle ---
+
+  Future<void> startServer([String? selfDevicePairingToken, int port = ConnectionService.defaultPort]) async {
+    await _logger.info('TransportManager', 'Starting Secure Transport Server on port $port...');
+    
+    final selfDeviceId = _db.getValue('self_device_uuid') ?? 'default_self_id';
+
     _connectionService = ConnectionService(
-      selfDevicePairingToken,
+      selfDeviceId,
+      pairingToken: selfDevicePairingToken,
+      tokenResolver: selfDevicePairingToken == null ? _resolveTokenForDevice : null,
       onNewSecureChannel: (channel) {
         _handleNewIncomingChannel(channel);
       },
@@ -62,11 +74,11 @@ class TransportManager {
         }
       },
     );
-    await _connectionService!.startListening();
+    await _connectionService!.startListening(port: port);
   }
 
   Future<void> stopServer() async {
-    _connectionService?.stop();
+    await _connectionService?.stop();
     _connectionService = null;
     
     for (final channel in List.from(_activeChannels.values)) {
@@ -90,26 +102,52 @@ class TransportManager {
   Future<SecureChannel> connectToDevice(DeviceModel device) async {
     _logger.info('TransportManager', 'Connecting to device: ${device.name} (${device.ipAddress}:${device.port})...');
     
-    // Retrieve pairing token
     final pairingToken = device.pairingToken ?? _db.getValue('pairing_token_${device.id}') ?? 'default_token';
-
-    _connectionService ??= ConnectionService(
-      pairingToken,
-      onLog: (msg) => _logger.info('ConnectionService', msg),
-      onPacketReceived: (channel, packet) {
-        final deviceId = _activeChannels.entries
-            .firstWhere((e) => e.value == channel, orElse: () => MapEntry('', channel))
-            .key;
-        if (deviceId.isNotEmpty) {
-          routePacket(deviceId, packet);
-        }
-      },
-    );
+    final selfDeviceId = _db.getValue('self_device_uuid') ?? 'default_self_id';
 
     try {
-      final channel = await _connectionService!.connectToDevice(device.ipAddress, port: device.port);
-      _registerChannel(device.id, channel, device.ipAddress, device.port);
-      return channel;
+      final socket = await Socket.connect(device.ipAddress, device.port, timeout: const Duration(seconds: 10));
+      _logger.info('TransportManager', 'Raw socket connected to ${device.ipAddress}:${device.port}. Establishing SecureChannel...');
+
+      late final SecureChannel channel;
+      channel = SecureChannel(
+        socket,
+        pairingToken,
+        isClient: true,
+        selfDeviceId: selfDeviceId,
+        onError: (err) {
+          _logger.error('TransportManager', 'Client channel security error: $err');
+        },
+        onDisconnected: () {
+          _logger.info('TransportManager', 'Client channel to ${device.ipAddress} disconnected.');
+          _activeChannels.removeWhere((id, c) => c == channel);
+          _activeHeartbeats.remove(device.id)?.stop();
+        },
+        onPacketReceived: (packet) {
+          routePacket(device.id, packet);
+        },
+      );
+
+      // Wait for handshake to finish, then notify
+      final completer = Completer<SecureChannel>();
+      Timer.periodic(const Duration(milliseconds: 100), (timer) {
+        if (channel.isAuthenticated) {
+          timer.cancel();
+          _logger.info('TransportManager', 'Client channel authenticated successfully.');
+          _registerChannel(device.id, channel, device.ipAddress, device.port);
+          completer.complete(channel);
+        }
+        if (timer.tick > 100) { // 10 seconds timeout
+          timer.cancel();
+          if (!channel.isAuthenticated) {
+            _logger.error('TransportManager', 'Client channel authentication timed out.');
+            channel.close();
+            completer.completeError(TimeoutException('Authentication timed out'));
+          }
+        }
+      });
+
+      return await completer.future;
     } catch (e, stack) {
       await _logger.error('TransportManager', 'Connection to device ${device.name} failed: $e', stack.toString());
       await _recordError(device.id, 'ConnectionFailed', e.toString(), stack.toString());
@@ -119,10 +157,11 @@ class TransportManager {
 
   // --- Channel Registration & Packet Processing ---
 
-  void _handleNewIncomingChannel(SecureChannel channel) {
-    Timer(const Duration(milliseconds: 500), () async {
-      final devices = await _deviceRepository.getDevices();
+  void _handleNewIncomingChannel(SecureChannel channel) async {
+    try {
       final remoteIp = channel.socket.remoteAddress.address;
+      final remotePort = channel.socket.remotePort;
+      final devices = await _deviceRepository.getDevices();
       final matchedDevice = devices.firstWhere(
         (d) => d.ipAddress == remoteIp,
         orElse: () => DeviceModel(
@@ -137,13 +176,79 @@ class TransportManager {
           trustStatus: 'Trusted',
           connectionStatus: 'Online',
           ipAddress: remoteIp,
-          port: channel.socket.remotePort,
+          port: remotePort,
           storageInfo: 'Unknown',
         ),
       );
 
-      _registerChannel(matchedDevice.id, channel, remoteIp, channel.socket.remotePort);
-    });
+      _registerChannel(matchedDevice.id, channel, remoteIp, remotePort);
+    } catch (_) {}
+  }
+
+  bool isDeviceConnected(String deviceId) {
+    return _activeChannels.containsKey(deviceId);
+  }
+
+  Future<void> disconnectFromDevice(String deviceId) async {
+    final channel = _activeChannels[deviceId];
+    if (channel == null) return;
+
+    final ip = channel.socket.remoteAddress.address;
+    final port = channel.socket.remotePort;
+
+    _logger.info('TransportManager', 'Manually disconnecting device $deviceId');
+    
+    // Stop reconnect service to prevent infinite loop
+    _reconnectServices.remove(deviceId)?.stop();
+
+    _activeChannels.remove(deviceId)?.close();
+    _activeHeartbeats.remove(deviceId)?.stop();
+
+    // Log connection history
+    final entry = ConnectionHistoryModel(
+      id: const Uuid().v4(),
+      deviceId: deviceId,
+      timestamp: DateTime.now(),
+      eventType: ConnectionEventType.disconnected,
+      ipAddress: ip,
+      port: port,
+    );
+    await _transportRepository.addConnectionHistoryEntry(entry);
+    _eventController.add(TransportEvent(TransportEventType.disconnected, deviceId, message: 'Disconnected manually'));
+
+    // Update device offline status in DeviceRepository
+    try {
+      final device = await _deviceRepository.getDeviceById(deviceId);
+      if (device != null) {
+        final updated = device.copyWith(connectionStatus: 'Offline');
+        await _deviceRepository.addOrUpdateDevice(updated);
+      }
+    } catch (_) {}
+
+    // Handle active transfer interruption
+    for (final sessionId in _activeTransfers.keys) {
+      final transfer = _activeTransfers[sessionId]!;
+      if (transfer.channel.socket.remoteAddress.address == ip && transfer.isTransferring) {
+        transfer.cancel();
+        _logger.warning('TransportManager', 'Transfer session $sessionId interrupted due to disconnect.');
+        
+        final sessionModel = TransferSessionModel(
+          id: sessionId,
+          deviceId: deviceId,
+          startTime: DateTime.now().subtract(const Duration(minutes: 5)),
+          endTime: DateTime.now(),
+          status: SessionStatus.interrupted,
+          totalFiles: transfer.totalFiles,
+          completedFiles: transfer.completedFiles,
+          totalBytes: transfer.totalBytes,
+          completedBytes: transfer.completedBytes,
+          bandwidthLimit: _bandwidthManager.limit,
+        );
+        await _transportRepository.addOrUpdateSession(sessionModel);
+        
+        _eventController.add(TransportEvent(TransportEventType.transferInterrupted, deviceId, sessionId: sessionId));
+      }
+    }
   }
 
   void _registerChannel(String deviceId, SecureChannel channel, String ip, int port) async {
@@ -162,6 +267,20 @@ class TransportManager {
     );
     await _transportRepository.addConnectionHistoryEntry(entry);
     _eventController.add(TransportEvent(TransportEventType.connected, deviceId, message: 'Connected to $ip:$port'));
+
+    // Update device online status in DeviceRepository
+    try {
+      final device = await _deviceRepository.getDeviceById(deviceId);
+      if (device != null) {
+        final updated = device.copyWith(
+          connectionStatus: 'Online',
+          ipAddress: ip,
+          port: port,
+          lastSeen: DateTime.now(),
+        );
+        await _deviceRepository.addOrUpdateDevice(updated);
+      }
+    } catch (_) {}
 
     // Heartbeat
     final heartbeat = HeartbeatService(
@@ -212,6 +331,15 @@ class TransportManager {
     await _transportRepository.addConnectionHistoryEntry(entry);
     _eventController.add(TransportEvent(TransportEventType.disconnected, deviceId, message: 'Disconnected'));
 
+    // Update device offline status in DeviceRepository
+    try {
+      final device = await _deviceRepository.getDeviceById(deviceId);
+      if (device != null) {
+        final updated = device.copyWith(connectionStatus: 'Offline');
+        await _deviceRepository.addOrUpdateDevice(updated);
+      }
+    } catch (_) {}
+
     // Handle active transfer interruption
     for (final sessionId in _activeTransfers.keys) {
       final transfer = _activeTransfers[sessionId]!;
@@ -246,13 +374,21 @@ class TransportManager {
     if (_reconnectServices.containsKey(deviceId)) return;
 
     final devices = await _deviceRepository.getDevices();
-    final matched = devices.firstWhere((d) => d.id == deviceId, orElse: () => throw Exception('Device not found'));
+    final index = devices.indexWhere((d) => d.id == deviceId);
+    if (index == -1) {
+      _logger.warning('TransportManager', 'Device $deviceId not found in paired list. Skipping auto-reconnect.');
+      return;
+    }
+    final matched = devices[index];
     final pairingToken = matched.pairingToken ?? _db.getValue('pairing_token_$deviceId') ?? 'default_token';
+
+    final selfDeviceId = _db.getValue('self_device_uuid') ?? 'default_self_id';
 
     final reconnect = ReconnectService(
       targetIp: ip,
       port: port,
       pairingToken: pairingToken,
+      selfDeviceId: selfDeviceId,
       onLog: (msg) => _logger.info('ReconnectService', msg),
       onReconnected: (newChannel) async {
         _logger.info('TransportManager', 'Reconnection successful for device: $deviceId');

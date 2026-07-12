@@ -56,7 +56,7 @@ class HeartbeatService {
       _missedAcks++;
       await _channel.sendSecurePacket(
         PacketType.heartbeat,
-        Uint8List(0),
+        Uint8List.fromList([0]),
         sessionId: 'heartbeat',
       );
     } catch (e) {
@@ -72,7 +72,7 @@ class HeartbeatService {
     try {
       await _channel.sendSecurePacket(
         PacketType.heartbeatAck,
-        Uint8List(0),
+        Uint8List.fromList([0]),
         sessionId: 'heartbeat',
         packetIndex: packet.packetIndex,
       );

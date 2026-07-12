@@ -37,7 +37,7 @@ void main() {
       final startTime = DateTime.now();
 
       // 1. Connection & Handshake Authentication Test
-      final serverConnectionService = ConnectionService(testToken);
+      final serverConnectionService = ConnectionService('server-test-id', pairingToken: testToken);
       SecureChannel? acceptedServerChannel;
       final serverCompleter = Completer<SecureChannel>();
 
@@ -50,7 +50,7 @@ void main() {
 
       await serverConnectionService.startListening(port: testPort);
 
-      final clientConnectionService = ConnectionService(testToken);
+      final clientConnectionService = ConnectionService('client-test-id', pairingToken: testToken);
       final clientChannel = await clientConnectionService.connectToDevice('127.0.0.1', port: testPort);
 
       final serverChannel = await serverCompleter.future.timeout(const Duration(seconds: 5));
@@ -167,6 +167,7 @@ void main() {
         targetIp: '127.0.0.1',
         port: testPort,
         pairingToken: testToken,
+        selfDeviceId: 'test-client-id',
         onReconnected: (ch) => reconnectCompleter.complete(ch),
         onReconnectFailed: () => reconnectCompleter.completeError('failed'),
       );

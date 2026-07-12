@@ -35,24 +35,36 @@ class SimulatedRemoteConnectionProvider implements RemoteConnectionProvider {
     _dataStreams[deviceId] ??= StreamController<List<int>>.broadcast();
     
     _states[deviceId] = RemoteConnectionState.connecting;
-    _stateStreams[deviceId]!.add(RemoteConnectionState.connecting);
+    final stateStream = _stateStreams[deviceId];
+    if (stateStream != null && !stateStream.isClosed) {
+      stateStream.add(RemoteConnectionState.connecting);
+    }
     
     await Future.delayed(const Duration(milliseconds: 50));
     
     _states[deviceId] = RemoteConnectionState.connected;
-    _stateStreams[deviceId]!.add(RemoteConnectionState.connected);
+    final stateStream2 = _stateStreams[deviceId];
+    if (stateStream2 != null && !stateStream2.isClosed) {
+      stateStream2.add(RemoteConnectionState.connected);
+    }
   }
 
   @override
   Future<void> disconnect(String deviceId) async {
     _states[deviceId] = RemoteConnectionState.disconnected;
-    _stateStreams[deviceId]?.add(RemoteConnectionState.disconnected);
+    final stateStream = _stateStreams[deviceId];
+    if (stateStream != null && !stateStream.isClosed) {
+      stateStream.add(RemoteConnectionState.disconnected);
+    }
   }
 
   @override
   Future<void> sendData(String deviceId, List<int> data) async {
     Timer(const Duration(milliseconds: 30), () {
-      _dataStreams[deviceId]?.add(data);
+      final ctrl = _dataStreams[deviceId];
+      if (ctrl != null && !ctrl.isClosed) {
+        ctrl.add(data);
+      }
     });
   }
 
