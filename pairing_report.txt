@@ -1,23 +1,23 @@
 ========================================================
 DEVICE PAIRING FOUNDATION VALIDATION REPORT
-Generated on: 2026-07-11T06:10:35.450666
+Generated on: 2026-07-12T07:28:35.901585
 ========================================================
 
 SCENARIO 1: Android (Device A) ↔ Windows (Device B) Pairing
-- Device A (Android) generated pairing code: 810063
+- Device A (Android) generated pairing code: 413783
 - Device B (Windows) received pairing request from: Pixel Phone
 - Device B approved request and marked Device A as: Trusted
 - Device A saved Device B as: Trusted
 STATUS: Scenario 1 Passed Successfully.
 
 SCENARIO 2: Windows (Device A) ↔ Windows (Device B) Pairing
-- Device A (Windows) generated pairing code: 270412
+- Device A (Windows) generated pairing code: 116350
 - Device B approved request and marked Device A as: Trusted
 - Device A saved Device B as: Trusted
 STATUS: Scenario 2 Passed Successfully.
 
 SCENARIO 3: Android (Device A) ↔ Android (Device B) Pairing
-- Device A (Android) generated pairing code: 526496
+- Device A (Android) generated pairing code: 141753
 - Device B approved request and marked Device A as: Trusted
 - Device A saved Device B as: Trusted
 STATUS: Scenario 3 Passed Successfully.

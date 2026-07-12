@@ -22,7 +22,8 @@ class TransferScheduler {
   final NetworkScanner networkScanner;
 
   final Map<String, SyncSession> _activeSyncSessions = {};
-  final StreamController<Map<String, SyncSession>> _sessionsController = StreamController.broadcast();
+  final StreamController<Map<String, SyncSession>> _sessionsController =
+      StreamController.broadcast();
 
   bool _isProcessing = false;
   bool _shouldStop = false;
@@ -32,8 +33,10 @@ class TransferScheduler {
   bool mockCharging = true;
   bool mockWifi = true;
 
-  Stream<Map<String, SyncSession>> get onSessionsChanged => _sessionsController.stream;
-  Map<String, SyncSession> get activeSessions => Map.unmodifiable(_activeSyncSessions);
+  Stream<Map<String, SyncSession>> get onSessionsChanged =>
+      _sessionsController.stream;
+  Map<String, SyncSession> get activeSessions =>
+      Map.unmodifiable(_activeSyncSessions);
 
   TransferScheduler({
     required this.queue,
@@ -67,8 +70,10 @@ class TransferScheduler {
     final enabled = db.getValue('auto_backup_enabled') == 'true';
     final charging = db.getValue('auto_backup_charging_only') == 'true';
     final wifi = db.getValue('auto_backup_wifi_only') == 'true';
-    final limit = int.tryParse(db.getValue('auto_backup_bandwidth_limit') ?? '0') ?? 0;
-    final retry = int.tryParse(db.getValue('auto_backup_retry_count') ?? '3') ?? 3;
+    final limit =
+        int.tryParse(db.getValue('auto_backup_bandwidth_limit') ?? '0') ?? 0;
+    final retry =
+        int.tryParse(db.getValue('auto_backup_retry_count') ?? '3') ?? 3;
 
     return SyncPolicy(
       autoBackupEnabled: enabled,
@@ -93,6 +98,7 @@ class TransferScheduler {
   Future<void> _processQueue() async {
     if (_isProcessing || _shouldStop) return;
     _isProcessing = true;
+    bool processedAnItem = false;
 
     try {
       final policy = getSyncPolicy();
@@ -104,7 +110,10 @@ class TransferScheduler {
       // Check Wi-Fi constraint
       final isWifi = await _checkWifiConstraint();
       if (policy.backupOnlyOnWifi && !isWifi) {
-        logger.warning('TransferScheduler', 'Sync policy: Wi-Fi required but connection is not Wi-Fi. Postponing sync.');
+        logger.warning(
+          'TransferScheduler',
+          'Sync policy: Wi-Fi required but connection is not Wi-Fi. Postponing sync.',
+        );
         _isProcessing = false;
         return;
       }
@@ -112,13 +121,18 @@ class TransferScheduler {
       // Check Charging constraint
       final isCharging = await _checkChargingConstraint();
       if (policy.backupOnlyWhileCharging && !isCharging) {
-        logger.warning('TransferScheduler', 'Sync policy: Charging required but device is on battery. Postponing sync.');
+        logger.warning(
+          'TransferScheduler',
+          'Sync policy: Charging required but device is on battery. Postponing sync.',
+        );
         _isProcessing = false;
         return;
       }
 
       // Find first item in queue that is waiting
-      final nextItemIndex = queue.items.indexWhere((i) => i.status == 'waiting');
+      final nextItemIndex = queue.items.indexWhere(
+        (i) => i.status == 'waiting',
+      );
       if (nextItemIndex == -1) {
         _isProcessing = false;
         return;
@@ -128,7 +142,8 @@ class TransferScheduler {
 
       // Exclude processing if device is already active in another transfer
       final destDeviceId = item.destDeviceId;
-      final isDeviceSyncing = _activeSyncSessions[destDeviceId]?.status == 'Syncing';
+      final isDeviceSyncing =
+          _activeSyncSessions[destDeviceId]?.status == 'Syncing';
       if (isDeviceSyncing) {
         _isProcessing = false;
         return;
@@ -137,35 +152,45 @@ class TransferScheduler {
       // Load device from DB
       final device = await deviceRepository.getDeviceById(destDeviceId);
       if (device == null) {
-        queue.updateStatus(item.id, 'failed', errorMessage: 'Device not found in database');
+        queue.updateStatus(
+          item.id,
+          'failed',
+          errorMessage: 'Device not found in database',
+        );
         _isProcessing = false;
         return;
       }
+
+      processedAnItem = true;
 
       // Mark item as syncing
       queue.updateStatus(item.id, 'syncing');
 
       // Set bandwidth limit on transport manager if configured
       if (policy.bandwidthLimit > 0) {
-        transportManager.bandwidthManager.setLimit(policy.bandwidthLimit * 1024);
+        transportManager.bandwidthManager.setLimit(
+          policy.bandwidthLimit * 1024,
+        );
       } else {
         transportManager.bandwidthManager.setLimit(0); // Unlimited
       }
 
       // Initialize or update SyncSession
-      var session = _activeSyncSessions[destDeviceId] ?? SyncSession(
-        id: const Uuid().v4(),
-        sourceDeviceId: 'local_device',
-        destDeviceId: destDeviceId,
-        status: 'Waiting',
-        startedAt: DateTime.now(),
-        totalFiles: 0,
-        completedFiles: 0,
-        totalBytes: 0,
-        completedBytes: 0,
-        currentSpeed: 0,
-        etaSeconds: 0,
-      );
+      var session =
+          _activeSyncSessions[destDeviceId] ??
+          SyncSession(
+            id: const Uuid().v4(),
+            sourceDeviceId: 'local_device',
+            destDeviceId: destDeviceId,
+            status: 'Waiting',
+            startedAt: DateTime.now(),
+            totalFiles: 0,
+            completedFiles: 0,
+            totalBytes: 0,
+            completedBytes: 0,
+            currentSpeed: 0,
+            etaSeconds: 0,
+          );
 
       session = session.copyWith(
         status: 'Syncing',
@@ -177,34 +202,49 @@ class TransferScheduler {
       _sessionsController.add(Map.from(_activeSyncSessions));
       _saveSessionsToDb();
 
-      logger.info('TransferScheduler', 'Auto backup started: ${item.fileName} -> ${device.name}');
+      logger.info(
+        'TransferScheduler',
+        'Auto backup started: ${item.fileName} -> ${device.name}',
+      );
 
       // Run transmission
       final file = File(item.filePath);
       final sourceFolder = file.parent.path;
 
       final stopwatch = Stopwatch()..start();
-      
+
       try {
-        final sessionId = await transportManager.sendFolder(destDeviceId, sourceFolder, [file]);
+        final sessionId = await transportManager.sendFolder(
+          destDeviceId,
+          sourceFolder,
+          [file],
+        );
 
         // Monitor transmission progress
         final progressCompleter = Completer<bool>();
-        final progressSubscription = transportManager.eventStream.listen((event) {
+        final progressSubscription = transportManager.eventStream.listen((
+          event,
+        ) {
           if (event.sessionId == sessionId) {
             if (event.type == TransportEventType.transferProgress) {
-              final updatedSession = _activeSyncSessions[destDeviceId]?.copyWith(
-                completedBytes: (event.progress * item.fileSize).toInt(),
-                currentSpeed: event.speed,
-                etaSeconds: event.speed > 0 ? ((item.fileSize - (event.progress * item.fileSize)) / event.speed).toInt() : 0,
-              );
+              final updatedSession = _activeSyncSessions[destDeviceId]
+                  ?.copyWith(
+                    completedBytes: (event.progress * item.fileSize).toInt(),
+                    currentSpeed: event.speed,
+                    etaSeconds: event.speed > 0
+                        ? ((item.fileSize - (event.progress * item.fileSize)) /
+                                  event.speed)
+                              .toInt()
+                        : 0,
+                  );
               if (updatedSession != null) {
                 _activeSyncSessions[destDeviceId] = updatedSession;
                 _sessionsController.add(Map.from(_activeSyncSessions));
               }
             } else if (event.type == TransportEventType.transferCompleted) {
               progressCompleter.complete(true);
-            } else if (event.type == TransportEventType.transferFailed || event.type == TransportEventType.transferInterrupted) {
+            } else if (event.type == TransportEventType.transferFailed ||
+                event.type == TransportEventType.transferInterrupted) {
               progressCompleter.complete(false);
             }
           }
@@ -219,10 +259,11 @@ class TransferScheduler {
 
         if (success) {
           queue.updateStatus(item.id, 'completed');
-          
+
           final finalSession = _activeSyncSessions[destDeviceId]?.copyWith(
             status: 'Connected',
-            completedFiles: (_activeSyncSessions[destDeviceId]?.completedFiles ?? 0) + 1,
+            completedFiles:
+                (_activeSyncSessions[destDeviceId]?.completedFiles ?? 0) + 1,
             completedBytes: _activeSyncSessions[destDeviceId]?.totalBytes,
             currentSpeed: 0,
             etaSeconds: 0,
@@ -234,8 +275,11 @@ class TransferScheduler {
             _sessionsController.add(Map.from(_activeSyncSessions));
           }
 
-          logger.info('TransferScheduler', 'Transfer completed: ${item.fileName} successfully synced.');
-          
+          logger.info(
+            'TransferScheduler',
+            'Transfer completed: ${item.fileName} successfully synced.',
+          );
+
           // Save successful sync metadata
           db.setValue('last_synced_file', item.fileName);
           db.setValue('last_successful_sync', DateTime.now().toIso8601String());
@@ -251,14 +295,17 @@ class TransferScheduler {
         }
       } catch (e) {
         stopwatch.stop();
-        logger.error('TransferScheduler', 'Transfer failed for ${item.fileName}: $e');
-        
+        logger.error(
+          'TransferScheduler',
+          'Transfer failed for ${item.fileName}: $e',
+        );
+
         db.setValue('failed_sync', DateTime.now().toIso8601String());
 
         final retries = item.retryCount;
         if (retries >= policy.retryCount) {
           queue.updateStatus(item.id, 'failed', errorMessage: e.toString());
-          
+
           final finalSession = _activeSyncSessions[destDeviceId]?.copyWith(
             status: 'Failed',
             currentSpeed: 0,
@@ -271,8 +318,13 @@ class TransferScheduler {
           }
         } else {
           queue.incrementRetry(item.id);
-          queue.updateStatus(item.id, 'waiting', errorMessage: 'Transfer failed. Retrying... (${retries + 1}/${policy.retryCount})');
-          
+          queue.updateStatus(
+            item.id,
+            'waiting',
+            errorMessage:
+                'Transfer failed. Retrying... (${retries + 1}/${policy.retryCount})',
+          );
+
           final finalSession = _activeSyncSessions[destDeviceId]?.copyWith(
             status: 'Waiting',
             currentSpeed: 0,
@@ -296,11 +348,16 @@ class TransferScheduler {
 
       _saveSessionsToDb();
     } catch (e) {
-      logger.error('TransferScheduler', 'Unhandled error in queue processor loop: $e');
+      logger.error(
+        'TransferScheduler',
+        'Unhandled error in queue processor loop: $e',
+      );
     } finally {
       _isProcessing = false;
-      // Trigger next item immediately
-      _processQueue();
+      if (processedAnItem && !_shouldStop) {
+        // Trigger next item immediately
+        _processQueue();
+      }
     }
   }
 
@@ -332,7 +389,10 @@ class TransferScheduler {
     if (history.length > 500) {
       history.removeRange(500, history.length); // Cap logs
     }
-    db.setValue('auto_backup_transfer_history', json.encode(history.map((e) => e.toJson()).toList()));
+    db.setValue(
+      'auto_backup_transfer_history',
+      json.encode(history.map((e) => e.toJson()).toList()),
+    );
   }
 
   Future<List<TransferHistoryEntry>> getTransferHistory() async {
@@ -340,7 +400,13 @@ class TransferScheduler {
     if (str != null) {
       try {
         final decoded = json.decode(str) as List<dynamic>;
-        return decoded.map((e) => TransferHistoryEntry.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+        return decoded
+            .map(
+              (e) => TransferHistoryEntry.fromJson(
+                Map<String, dynamic>.from(e as Map),
+              ),
+            )
+            .toList();
       } catch (_) {}
     }
     return [];
@@ -356,7 +422,11 @@ class TransferScheduler {
     if (str != null) {
       try {
         final decoded = json.decode(str) as List<dynamic>;
-        return decoded.map((e) => SyncSession.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+        return decoded
+            .map(
+              (e) => SyncSession.fromJson(Map<String, dynamic>.from(e as Map)),
+            )
+            .toList();
       } catch (_) {}
     }
     return [];

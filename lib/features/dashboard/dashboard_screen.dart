@@ -7,6 +7,8 @@ import 'dashboard_provider.dart';
 import 'dashboard_widgets.dart';
 import '../../core/copy_engine/copy_job.dart';
 import '../../core/copy_engine/copy_queue.dart';
+import '../../core/auto_backup/auto_backup_provider.dart';
+import '../../core/remote_backup/remote_status_provider.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -149,6 +151,10 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 24),
+                _buildAutoBackupMonitor(context, theme, ref),
+                const SizedBox(height: 24),
+                _buildRemoteBackupMonitor(context, theme, ref),
                 const SizedBox(height: 24),
 
                 // Split Layout for Large Screen, Linear for Mobile
@@ -576,6 +582,246 @@ class DashboardScreen extends ConsumerWidget {
                 );
               },
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAutoBackupMonitor(BuildContext context, ThemeData theme, WidgetRef ref) {
+    final autoBackupStats = ref.watch(autoBackupDashboardStatsProvider);
+
+    final String status = autoBackupStats['syncStatus'] ?? 'Paused';
+    Color statusColor;
+    IconData statusIcon;
+
+    switch (status) {
+      case 'Syncing':
+        statusColor = Colors.green;
+        statusIcon = Icons.sync_rounded;
+        break;
+      case 'Connected':
+      case 'Waiting':
+        statusColor = Colors.blue;
+        statusIcon = Icons.wifi_rounded;
+        break;
+      case 'Failed':
+        statusColor = Colors.red;
+        statusIcon = Icons.error_rounded;
+        break;
+      case 'Paused':
+        statusColor = Colors.orange;
+        statusIcon = Icons.pause_circle_rounded;
+        break;
+      case 'Offline':
+      default:
+        statusColor = Colors.grey;
+        statusIcon = Icons.cloud_off_rounded;
+        break;
+    }
+
+    final int connected = autoBackupStats['connectedDevices'] ?? 0;
+    final int pending = autoBackupStats['pendingFiles'] ?? 0;
+    final double speed = autoBackupStats['currentSpeed'] ?? 0.0;
+    final int eta = autoBackupStats['eta'] ?? 0;
+    final String currentFile = autoBackupStats['currentTransfer'] ?? 'None';
+    final DateTime? lastSync = autoBackupStats['lastSync'] as DateTime?;
+
+    return Card(
+      elevation: 0,
+      color: theme.colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.wifi_tethering_rounded, color: theme.colorScheme.primary, size: 24),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Automatic Network Backup Monitor',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(statusIcon, color: statusColor, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        status.toUpperCase(),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: statusColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            Wrap(
+              spacing: 24,
+              runSpacing: 16,
+              children: [
+                _buildStatTile(theme, 'Connected Devices', '$connected online', Icons.devices_rounded),
+                _buildStatTile(theme, 'Pending Files', '$pending in queue', Icons.queue_rounded),
+                _buildStatTile(theme, 'Current Speed', formatSpeed(speed), Icons.speed_rounded),
+                _buildStatTile(theme, 'ETA', eta > 0 ? '${eta}s' : 'N/A', Icons.timer_rounded),
+                _buildStatTile(theme, 'Last Sync', lastSync != null ? _formatDateTime(lastSync) : 'Never', Icons.history_rounded),
+                _buildStatTile(theme, 'Current Syncing File', currentFile, Icons.file_present_rounded),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatTile(ThemeData theme, String label, String value, IconData icon) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 160, maxWidth: 220),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7), size: 20),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+                Text(
+                  value,
+                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDateTime(DateTime dt) {
+    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildRemoteBackupMonitor(BuildContext context, ThemeData theme, WidgetRef ref) {
+    final remoteStats = ref.watch(remoteDashboardStatsProvider);
+
+    final int remoteDevices = remoteStats['remoteDevices'] ?? 0;
+    final String currentUpload = remoteStats['currentUpload'] ?? 'None';
+    final String currentDownload = remoteStats['currentDownload'] ?? 'None';
+    final double speed = remoteStats['internetSpeed'] ?? 0.0;
+    final double progress = remoteStats['syncProgress'] ?? 0.0;
+    final int pendingUploads = remoteStats['pendingUploads'] ?? 0;
+
+    final hasActiveSync = currentUpload != 'None';
+
+    return Card(
+      elevation: 0,
+      color: theme.colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.cloud_queue_rounded, color: theme.colorScheme.tertiary, size: 24),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Remote Backup Monitor (Internet)',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (hasActiveSync ? Colors.green : Colors.blue).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        hasActiveSync ? Icons.cloud_upload_rounded : Icons.cloud_done_rounded,
+                        color: hasActiveSync ? Colors.green : Colors.blue,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        hasActiveSync ? 'SYNCING' : 'READY',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: hasActiveSync ? Colors.green : Colors.blue,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            Wrap(
+              spacing: 24,
+              runSpacing: 16,
+              children: [
+                _buildStatTile(theme, 'Remote Devices', '$remoteDevices paired', Icons.cloud_circle_rounded),
+                _buildStatTile(theme, 'Pending Uploads', '$pendingUploads files', Icons.queue_play_next_rounded),
+                _buildStatTile(theme, 'Current Upload', currentUpload, Icons.upload_file_rounded),
+                _buildStatTile(theme, 'Current Download', currentDownload, Icons.download_for_offline_rounded),
+                _buildStatTile(theme, 'Internet Speed', formatSpeed(speed), Icons.speed_rounded),
+                _buildStatTile(
+                  theme,
+                  'Sync Progress',
+                  hasActiveSync ? '${(progress * 100).toStringAsFixed(1)}%' : 'N/A',
+                  Icons.donut_large_rounded,
+                ),
+              ],
+            ),
+            if (hasActiveSync) ...[
+              const SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 6,
+                  backgroundColor: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                  valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                ),
+              ),
+            ],
           ],
         ),
       ),

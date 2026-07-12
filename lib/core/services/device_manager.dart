@@ -101,7 +101,23 @@ class DeviceManager {
 
   Future<void> setTrustStatus(String id, String trustStatus) async {
     final index = _pairedDevices.indexWhere((d) => d.id == id);
-    if (index == -1) return;
+    if (index == -1) {
+      var device = await _repository.getDeviceById(id);
+      if (device == null) {
+        final discIndex = _discoveredDevices.indexWhere((d) => d.id == id);
+        if (discIndex != -1) {
+          device = _discoveredDevices[discIndex];
+        }
+      }
+      if (device != null) {
+        final updated = device.copyWith(trustStatus: trustStatus);
+        _pairedDevices.add(updated);
+        _pairedDevicesController.add(_pairedDevices);
+        await _repository.addOrUpdateDevice(updated);
+        await _logger.info('DeviceManager', 'Trust status of "${updated.name}" changed to $trustStatus');
+      }
+      return;
+    }
 
     final old = _pairedDevices[index];
     final updated = old.copyWith(trustStatus: trustStatus);
@@ -110,6 +126,30 @@ class DeviceManager {
     await _repository.addOrUpdateDevice(updated);
 
     await _logger.info('DeviceManager', 'Trust status of "${old.name}" changed to $trustStatus');
+  }
+
+  Future<void> approveDevice(String id) async {
+    await setTrustStatus(id, 'Trusted');
+  }
+
+  Future<void> rejectDevice(String id) async {
+    await setTrustStatus(id, 'Rejected');
+  }
+
+  Future<void> blockDevice(String id) async {
+    await setTrustStatus(id, 'Blocked');
+  }
+
+  Future<void> unblockDevice(String id) async {
+    await setTrustStatus(id, 'Pending');
+  }
+
+  String getDeviceTrustStatus(String id) {
+    final index = _pairedDevices.indexWhere((d) => d.id == id);
+    if (index != -1) {
+      return _pairedDevices[index].trustStatus;
+    }
+    return 'Pending';
   }
 
   Future<void> disconnectDevice(String id) async {
@@ -134,6 +174,43 @@ class DeviceManager {
     await _repository.removeDevice(id);
 
     await _logger.info('DeviceManager', 'Device "${removed.name}" removed');
+  }
+
+  Future<void> addDevice(DeviceModel device) async {
+    final index = _pairedDevices.indexWhere((d) => d.id == device.id);
+    if (index != -1) {
+      _pairedDevices[index] = device;
+    } else {
+      _pairedDevices.add(device);
+    }
+    _pairedDevicesController.add(_pairedDevices);
+    await _repository.addOrUpdateDevice(device);
+    await _logger.info('DeviceManager', 'Device "${device.name}" added');
+  }
+
+  Future<void> updateLastSeen(String id, DateTime lastSeen) async {
+    final index = _pairedDevices.indexWhere((d) => d.id == id);
+    if (index == -1) return;
+    final old = _pairedDevices[index];
+    final updated = old.copyWith(lastSeen: lastSeen);
+    _pairedDevices[index] = updated;
+    _pairedDevicesController.add(_pairedDevices);
+    await _repository.addOrUpdateDevice(updated);
+  }
+
+  Future<List<DeviceModel>> loadDevices() async {
+    final loaded = await _repository.getDevices();
+    _pairedDevices.clear();
+    _pairedDevices.addAll(loaded);
+    _pairedDevicesController.add(_pairedDevices);
+    return _pairedDevices;
+  }
+
+  Future<void> saveDevices(List<DeviceModel> devices) async {
+    _pairedDevices.clear();
+    _pairedDevices.addAll(devices);
+    _pairedDevicesController.add(_pairedDevices);
+    await _repository.saveDevices(devices);
   }
 
   Future<void> refreshDevices() async {

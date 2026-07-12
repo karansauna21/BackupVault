@@ -410,4 +410,84 @@ void main() {
       logReport('STATUS: Auto-expiration/Cancellation Flow Passed Successfully.\n');
     });
   });
+
+  group('DeviceManager Trust Model Tests', () {
+    late SettingsDatabase db;
+    late DeviceRepository repo;
+    late DeviceIdentity identity;
+    late ConnectionManager conn;
+    late DeviceManager manager;
+
+    setUp(() async {
+      db = SettingsDatabase(isInMemory: true);
+      await db.init();
+      repo = DeviceRepository(db);
+      identity = DeviceIdentity(db, FakeStorageProvider());
+      conn = ConnectionManager(FakeLoggingService());
+      manager = DeviceManager(repo, identity, conn, FakeLoggingService());
+      await manager.init();
+    });
+
+    tearDown(() {
+      manager.dispose();
+      db.close();
+    });
+
+    test('Unknown devices must always remain Pending', () {
+      final status = manager.getDeviceTrustStatus('completely-unknown-device-123');
+      expect(status, equals('Pending'));
+    });
+
+    test('Approve, Reject, Block, and Unblock update status and store in database', () async {
+      final testDevice = DeviceModel(
+        id: 'test-device-uuid-1',
+        name: 'Test Device 1',
+        platform: 'Android',
+        osVersion: 'Android 14',
+        appVersion: '1.0.0',
+        deviceModel: 'Pixel 8',
+        pairingDate: DateTime.now(),
+        lastSeen: DateTime.now(),
+        trustStatus: 'Pending',
+        connectionStatus: 'Offline',
+        ipAddress: '192.168.1.50',
+        port: 8321,
+        storageInfo: '128 GB',
+      );
+
+      // Add device to manager
+      await manager.addDevice(testDevice);
+
+      // 1. Test initial trust status
+      expect(manager.getDeviceTrustStatus(testDevice.id), equals('Pending'));
+
+      // 2. Test Approve Device
+      await manager.approveDevice(testDevice.id);
+      expect(manager.getDeviceTrustStatus(testDevice.id), equals('Trusted'));
+      var dbDevice = await repo.getDeviceById(testDevice.id);
+      expect(dbDevice, isNotNull);
+      expect(dbDevice!.trustStatus, equals('Trusted'));
+
+      // 3. Test Reject Device
+      await manager.rejectDevice(testDevice.id);
+      expect(manager.getDeviceTrustStatus(testDevice.id), equals('Rejected'));
+      dbDevice = await repo.getDeviceById(testDevice.id);
+      expect(dbDevice, isNotNull);
+      expect(dbDevice!.trustStatus, equals('Rejected'));
+
+      // 4. Test Block Device
+      await manager.blockDevice(testDevice.id);
+      expect(manager.getDeviceTrustStatus(testDevice.id), equals('Blocked'));
+      dbDevice = await repo.getDeviceById(testDevice.id);
+      expect(dbDevice, isNotNull);
+      expect(dbDevice!.trustStatus, equals('Blocked'));
+
+      // 5. Test Unblock Device (returns to Pending)
+      await manager.unblockDevice(testDevice.id);
+      expect(manager.getDeviceTrustStatus(testDevice.id), equals('Pending'));
+      dbDevice = await repo.getDeviceById(testDevice.id);
+      expect(dbDevice, isNotNull);
+      expect(dbDevice!.trustStatus, equals('Pending'));
+    });
+  });
 }

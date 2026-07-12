@@ -7,6 +7,8 @@ import 'package:backup_vault/features/dashboard/dashboard_widgets.dart';
 import 'package:backup_vault/features/dashboard/dashboard_screen.dart';
 import 'package:backup_vault/core/copy_engine/copy_job.dart';
 import 'package:backup_vault/core/copy_engine/copy_queue.dart';
+import 'package:backup_vault/core/auto_backup/auto_backup_provider.dart';
+import 'package:backup_vault/core/remote_backup/remote_status_provider.dart';
 
 class MockCopyQueue extends CopyQueue {
   @override
@@ -91,6 +93,23 @@ void main() {
             dashboardProvider.overrideWith((ref) => Future.value(DashboardStats.initial())),
             recentActivityProvider.overrideWith((ref) => Future.value([])),
             copyQueueProvider.overrideWith(() => MockCopyQueue()),
+            autoBackupDashboardStatsProvider.overrideWithValue({
+              'connectedDevices': 0,
+              'pendingFiles': 0,
+              'currentTransfer': 'None',
+              'currentSpeed': 0.0,
+              'eta': 0,
+              'lastSync': null,
+              'syncStatus': 'Paused',
+            }),
+            remoteDashboardStatsProvider.overrideWithValue({
+              'remoteDevices': 0,
+              'currentUpload': 'None',
+              'currentDownload': 'None',
+              'internetSpeed': 0.0,
+              'syncProgress': 0.0,
+              'pendingUploads': 0,
+            }),
           ],
           child: const MaterialApp(
             home: DashboardScreen(),
@@ -105,6 +124,8 @@ void main() {
       expect(find.text('Total Backup Size'), findsOneWidget);
       expect(find.text('Pending Queue'), findsOneWidget);
       expect(find.text('Backup Speed'), findsOneWidget);
+      expect(find.text('Automatic Network Backup Monitor'), findsOneWidget);
+      expect(find.text('Remote Backup Monitor (Internet)'), findsOneWidget);
     });
   });
 }
