@@ -19,9 +19,9 @@ class FakeStorageProvider implements StorageProvider {
   Future<Map<String, String>?> pickDirectory() async => null;
   @override
   Future<Map<String, int>?> getDiskFreeSpace(String path) async => {
-        'free': 60 * 1024 * 1024 * 1024,
-        'total': 256 * 1024 * 1024 * 1024,
-      };
+    'free': 60 * 1024 * 1024 * 1024,
+    'total': 256 * 1024 * 1024 * 1024,
+  };
 }
 
 class FakeBackupLogRepository implements BackupLogRepository {
@@ -30,7 +30,10 @@ class FakeBackupLogRepository implements BackupLogRepository {
   @override
   Future<int> clearLogs() async => 0;
   @override
-  Future<List<BackupLog>> getAllLogs({String? logType, int limit = 200}) async => [];
+  Future<List<BackupLog>> getAllLogs({
+    String? logType,
+    int limit = 200,
+  }) async => [];
 }
 
 class FakeLoggingService extends LoggingService {
@@ -118,7 +121,7 @@ void main() {
   group('Pairing Scenarios Tests', () {
     late SettingsDatabase dbA;
     late SettingsDatabase dbB;
-    
+
     late DeviceRepository repoA;
     late DeviceRepository repoB;
 
@@ -150,8 +153,18 @@ void main() {
       connA = ConnectionManager(FakeLoggingService());
       connB = ConnectionManager(FakeLoggingService());
 
-      pairingA = DevicePairingService(repoA, identityA, connA, FakeLoggingService());
-      pairingB = DevicePairingService(repoB, identityB, connB, FakeLoggingService());
+      pairingA = DevicePairingService(
+        repoA,
+        identityA,
+        connA,
+        FakeLoggingService(),
+      );
+      pairingB = DevicePairingService(
+        repoB,
+        identityB,
+        connB,
+        FakeLoggingService(),
+      );
 
       managerA = DeviceManager(repoA, identityA, connA, FakeLoggingService());
       managerB = DeviceManager(repoB, identityB, connB, FakeLoggingService());
@@ -172,13 +185,13 @@ void main() {
 
     test('Scenario 1: Android ↔ Windows Pairing', () async {
       logReport('SCENARIO 1: Android (Device A) ↔ Windows (Device B) Pairing');
-      
+
       // Setup Device A (Android)
       dbA.setValue('self_device_uuid', 'android-uuid-55555');
       dbA.setValue('self_device_name', 'Pixel Phone');
       dbA.setValue('self_device_platform', 'Android');
       await managerA.init();
-      
+
       // Setup Device B (Windows)
       dbB.setValue('self_device_uuid', 'windows-uuid-99999');
       dbB.setValue('self_device_name', 'Surface Laptop');
@@ -204,7 +217,9 @@ void main() {
       final pendingReqOnB = pairingB.pendingRequests.first;
       expect(pendingReqOnB.pairCode, equals(pairCode));
       expect(pendingReqOnB.device.id, equals(identityA.id));
-      logReport('- Device B (Windows) received pairing request from: ${pendingReqOnB.device.name}');
+      logReport(
+        '- Device B (Windows) received pairing request from: ${pendingReqOnB.device.name}',
+      );
 
       // B approves pairing request
       await pairingB.approveRequest(identityA.id);
@@ -215,7 +230,9 @@ void main() {
       final deviceAOnB = await repoB.getDeviceById(identityA.id);
       expect(deviceAOnB, isNotNull);
       expect(deviceAOnB!.trustStatus, equals('Trusted'));
-      logReport('- Device B approved request and marked Device A as: ${deviceAOnB.trustStatus}');
+      logReport(
+        '- Device B approved request and marked Device A as: ${deviceAOnB.trustStatus}',
+      );
 
       // A receives approval response (simulated network loopback)
       final bModel = await identityB.toModel(ip: '192.168.1.30', port: 8321);
@@ -270,7 +287,9 @@ void main() {
       final deviceAOnB = await repoB.getDeviceById(identityA.id);
       expect(deviceAOnB, isNotNull);
       expect(deviceAOnB!.trustStatus, equals('Trusted'));
-      logReport('- Device B approved request and marked Device A as: ${deviceAOnB.trustStatus}');
+      logReport(
+        '- Device B approved request and marked Device A as: ${deviceAOnB.trustStatus}',
+      );
 
       // Save on A
       final bModel = await identityB.toModel(ip: '192.168.1.12', port: 8321);
@@ -320,7 +339,9 @@ void main() {
       final deviceAOnB = await repoB.getDeviceById(identityA.id);
       expect(deviceAOnB, isNotNull);
       expect(deviceAOnB!.trustStatus, equals('Trusted'));
-      logReport('- Device B approved request and marked Device A as: ${deviceAOnB.trustStatus}');
+      logReport(
+        '- Device B approved request and marked Device A as: ${deviceAOnB.trustStatus}',
+      );
 
       // Save on A
       final bModel = await identityB.toModel(ip: '10.0.0.6', port: 8321);
@@ -367,7 +388,9 @@ void main() {
 
       // Verify B rejected it immediately and it did NOT become pending
       expect(pairingB.pendingRequests.isEmpty, isTrue);
-      logReport('- Blocked Device was rejected automatically without pending UI approval.');
+      logReport(
+        '- Blocked Device was rejected automatically without pending UI approval.',
+      );
       logReport('STATUS: Blocked Device Constraint Passed Successfully.\n');
     });
 
@@ -407,7 +430,9 @@ void main() {
       expect(pairingB.pendingRequests.isEmpty, isTrue);
       logReport('- Request removed successfully (Rejected/Cancelled)');
 
-      logReport('STATUS: Auto-expiration/Cancellation Flow Passed Successfully.\n');
+      logReport(
+        'STATUS: Auto-expiration/Cancellation Flow Passed Successfully.\n',
+      );
     });
   });
 
@@ -434,60 +459,65 @@ void main() {
     });
 
     test('Unknown devices must always remain Pending', () {
-      final status = manager.getDeviceTrustStatus('completely-unknown-device-123');
+      final status = manager.getDeviceTrustStatus(
+        'completely-unknown-device-123',
+      );
       expect(status, equals('Pending'));
     });
 
-    test('Approve, Reject, Block, and Unblock update status and store in database', () async {
-      final testDevice = DeviceModel(
-        id: 'test-device-uuid-1',
-        name: 'Test Device 1',
-        platform: 'Android',
-        osVersion: 'Android 14',
-        appVersion: '1.0.0',
-        deviceModel: 'Pixel 8',
-        pairingDate: DateTime.now(),
-        lastSeen: DateTime.now(),
-        trustStatus: 'Pending',
-        connectionStatus: 'Offline',
-        ipAddress: '192.168.1.50',
-        port: 8321,
-        storageInfo: '128 GB',
-      );
+    test(
+      'Approve, Reject, Block, and Unblock update status and store in database',
+      () async {
+        final testDevice = DeviceModel(
+          id: 'test-device-uuid-1',
+          name: 'Test Device 1',
+          platform: 'Android',
+          osVersion: 'Android 14',
+          appVersion: '1.0.0',
+          deviceModel: 'Pixel 8',
+          pairingDate: DateTime.now(),
+          lastSeen: DateTime.now(),
+          trustStatus: 'Pending',
+          connectionStatus: 'Offline',
+          ipAddress: '192.168.1.50',
+          port: 8321,
+          storageInfo: '128 GB',
+        );
 
-      // Add device to manager
-      await manager.addDevice(testDevice);
+        // Add device to manager
+        await manager.addDevice(testDevice);
 
-      // 1. Test initial trust status
-      expect(manager.getDeviceTrustStatus(testDevice.id), equals('Pending'));
+        // 1. Test initial trust status
+        expect(manager.getDeviceTrustStatus(testDevice.id), equals('Pending'));
 
-      // 2. Test Approve Device
-      await manager.approveDevice(testDevice.id);
-      expect(manager.getDeviceTrustStatus(testDevice.id), equals('Trusted'));
-      var dbDevice = await repo.getDeviceById(testDevice.id);
-      expect(dbDevice, isNotNull);
-      expect(dbDevice!.trustStatus, equals('Trusted'));
+        // 2. Test Approve Device
+        await manager.approveDevice(testDevice.id);
+        expect(manager.getDeviceTrustStatus(testDevice.id), equals('Trusted'));
+        var dbDevice = await repo.getDeviceById(testDevice.id);
+        expect(dbDevice, isNotNull);
+        expect(dbDevice!.trustStatus, equals('Trusted'));
 
-      // 3. Test Reject Device
-      await manager.rejectDevice(testDevice.id);
-      expect(manager.getDeviceTrustStatus(testDevice.id), equals('Rejected'));
-      dbDevice = await repo.getDeviceById(testDevice.id);
-      expect(dbDevice, isNotNull);
-      expect(dbDevice!.trustStatus, equals('Rejected'));
+        // 3. Test Reject Device
+        await manager.rejectDevice(testDevice.id);
+        expect(manager.getDeviceTrustStatus(testDevice.id), equals('Rejected'));
+        dbDevice = await repo.getDeviceById(testDevice.id);
+        expect(dbDevice, isNotNull);
+        expect(dbDevice!.trustStatus, equals('Rejected'));
 
-      // 4. Test Block Device
-      await manager.blockDevice(testDevice.id);
-      expect(manager.getDeviceTrustStatus(testDevice.id), equals('Blocked'));
-      dbDevice = await repo.getDeviceById(testDevice.id);
-      expect(dbDevice, isNotNull);
-      expect(dbDevice!.trustStatus, equals('Blocked'));
+        // 4. Test Block Device
+        await manager.blockDevice(testDevice.id);
+        expect(manager.getDeviceTrustStatus(testDevice.id), equals('Blocked'));
+        dbDevice = await repo.getDeviceById(testDevice.id);
+        expect(dbDevice, isNotNull);
+        expect(dbDevice!.trustStatus, equals('Blocked'));
 
-      // 5. Test Unblock Device (returns to Pending)
-      await manager.unblockDevice(testDevice.id);
-      expect(manager.getDeviceTrustStatus(testDevice.id), equals('Pending'));
-      dbDevice = await repo.getDeviceById(testDevice.id);
-      expect(dbDevice, isNotNull);
-      expect(dbDevice!.trustStatus, equals('Pending'));
-    });
+        // 5. Test Unblock Device (returns to Pending)
+        await manager.unblockDevice(testDevice.id);
+        expect(manager.getDeviceTrustStatus(testDevice.id), equals('Pending'));
+        dbDevice = await repo.getDeviceById(testDevice.id);
+        expect(dbDevice, isNotNull);
+        expect(dbDevice!.trustStatus, equals('Pending'));
+      },
+    );
   });
 }
