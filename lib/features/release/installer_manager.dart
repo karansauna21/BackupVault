@@ -13,7 +13,7 @@ class InstallerManager {
     required bool runAtStartup,
   }) {
     return '''
-; Inno Setup Installation Script for BackupVault
+; Inno Setup Installation Script for Backup Valut
 [Setup]
 AppName=$appName
 AppVersion=$appVersion
@@ -58,9 +58,9 @@ Filename: "{app}\\$appName.exe"; Description: "{cm:LaunchProgram,$appName}"; Fla
     bool runAtStartup = true,
   }) async {
     final issContent = generateInnoSetupScript(
-      appName: 'BackupVault',
+      appName: 'Backup Valut',
       appVersion: appVersion,
-      publisher: 'BackupVault Enterprise',
+      publisher: 'Backup Valut Enterprise',
       sourcePath: sourcePath,
       outputPath: outputPath,
       createDesktopIcon: createDesktopIcon,

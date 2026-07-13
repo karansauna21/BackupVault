@@ -83,7 +83,9 @@ class _LogsScreenState extends ConsumerState<LogsScreen> with SingleTickerProvid
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDesktop = MediaQuery.of(context).size.width > 900;
+    final width = MediaQuery.of(context).size.width;
+    final isDesktop = width > 900;
+    final isMobile = width < 600;
     final logsState = ref.watch(logsControllerProvider);
 
     return Scaffold(
@@ -92,14 +94,19 @@ class _LogsScreenState extends ConsumerState<LogsScreen> with SingleTickerProvid
           children: [
             const Icon(Icons.analytics_outlined, size: 28),
             const SizedBox(width: 12),
-            Text(
-              'Logs & Activity Center',
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            Expanded(
+              child: Text(
+                isMobile ? 'Logs' : 'Logs & Activity Center',
+                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           tabs: const [
             Tab(icon: Icon(Icons.dashboard_customize_outlined), text: 'Activity Center'),
             Tab(icon: Icon(Icons.list_alt_rounded), text: 'Log Inspector'),
@@ -784,7 +791,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> with SingleTickerProvid
                 physics: const NeverScrollableScrollPhysics(),
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
-                childAspectRatio: 1.4,
+                childAspectRatio: isDesktop ? 2.5 : 1.8,
                 children: [
                   _buildStatCard(theme, 'Total Logs', stats.totalLogs.toString(), Icons.analytics_outlined, theme.colorScheme.primary),
                   _buildStatCard(theme, 'Errors', stats.errors.toString(), Icons.error_outline_rounded, theme.colorScheme.error),

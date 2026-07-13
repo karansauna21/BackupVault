@@ -154,16 +154,16 @@ void main() {
       final im = InstallerManager();
       
       final script = im.generateInnoSetupScript(
-        appName: 'BackupVault',
+        appName: 'Backup Valut',
         appVersion: '1.2.0',
-        publisher: 'BackupVault Corp',
+        publisher: 'Backup Valut Corp',
         sourcePath: '/build/win',
         outputPath: '/out',
         createDesktopIcon: true,
         runAtStartup: true,
       );
 
-      expect(script.contains('AppName=BackupVault'), isTrue);
+      expect(script.contains('AppName=Backup Valut'), isTrue);
       expect(script.contains('AppVersion=1.2.0'), isTrue);
 
       final exePath = await im.buildInstaller(

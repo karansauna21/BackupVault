@@ -6,10 +6,10 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-          body: Text('BackupVault'),
+          body: Text('Backup Valut'),
         ),
       ),
     );
-    expect(find.text('BackupVault'), findsOneWidget);
+    expect(find.text('Backup Valut'), findsOneWidget);
   });
 }

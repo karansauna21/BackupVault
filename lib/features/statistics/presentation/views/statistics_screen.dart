@@ -464,7 +464,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: isDesktop ? 2.2 : 1.6,
+              childAspectRatio: isDesktop ? 3.0 : 1.35,
               children: [
                 _buildMetricCard(theme, 'Total Monitored Size', _formatBytes(stats.totalBackupSize), Icons.inventory_2_outlined),
                 _buildMetricCard(theme, 'Backed Up Today', _formatBytes(stats.todaysBackupSize), Icons.today_rounded),
@@ -673,7 +673,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: isDesktop ? 2.2 : 4.0,
+            childAspectRatio: isDesktop ? 3.0 : 4.5,
             children: [
               _buildAnalysisSubcard(theme, 'Most Active Folder', storage.mostActiveFolder, Icons.flash_on_rounded),
               _buildAnalysisSubcard(theme, 'Least Active Folder', storage.leastActiveFolder, Icons.snooze_rounded),
@@ -788,7 +788,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: isDesktop ? 2.2 : 4.0,
+            childAspectRatio: isDesktop ? 3.0 : 4.5,
             children: [
               _buildAnalysisSubcard(theme, 'Avg Copy Transfer Speed', '${perf.averageCopySpeedMbps.toStringAsFixed(1)} MB/s', Icons.trending_up_rounded),
               _buildAnalysisSubcard(theme, 'Avg Hash Verification', '${perf.averageVerifyTimeSeconds.toStringAsFixed(2)} seconds', Icons.verified_user_sharp),

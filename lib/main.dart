@@ -53,7 +53,7 @@ class BackupVaultApp extends ConsumerWidget {
     }
 
     return MaterialApp.router(
-      title: 'BackupVault',
+      title: 'Backup Valut',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,

@@ -19,14 +19,17 @@ class DiscoveryService {
   final BonjourService _bonjourService;
   final NetworkScanner _networkScanner;
 
-  final StreamController<List<DiscoveredDevice>> _devicesStreamController = StreamController.broadcast();
+  final StreamController<List<DiscoveredDevice>> _devicesStreamController =
+      StreamController.broadcast();
   final Map<String, DiscoveredDevice> _discoveredDevices = {};
   Timer? _healthCheckTimer;
   Duration _healthCheckInterval = const Duration(seconds: 15);
   bool _isRunning = false;
 
-  Stream<List<DiscoveredDevice>> get onDevicesChanged => _devicesStreamController.stream;
-  List<DiscoveredDevice> get discoveredDevicesList => _discoveredDevices.values.toList();
+  Stream<List<DiscoveredDevice>> get onDevicesChanged =>
+      _devicesStreamController.stream;
+  List<DiscoveredDevice> get discoveredDevicesList =>
+      _discoveredDevices.values.toList();
   Duration get healthCheckInterval => _healthCheckInterval;
 
   DiscoveryService({
@@ -36,12 +39,12 @@ class DiscoveryService {
     required MdnsService mdnsService,
     required BonjourService bonjourService,
     required NetworkScanner networkScanner,
-  })  : _discoveryRepository = discoveryRepository,
-        _deviceRepository = deviceRepository,
-        _logger = logger,
-        _mdnsService = mdnsService,
-        _bonjourService = bonjourService,
-        _networkScanner = networkScanner;
+  }) : _discoveryRepository = discoveryRepository,
+       _deviceRepository = deviceRepository,
+       _logger = logger,
+       _mdnsService = mdnsService,
+       _bonjourService = bonjourService,
+       _networkScanner = networkScanner;
 
   void setHealthCheckInterval(Duration duration) {
     _healthCheckInterval = duration;
@@ -79,7 +82,10 @@ class DiscoveryService {
     // Start health check pings
     _startHealthCheckTimer();
 
-    _logger.info('DiscoveryService', 'Network discovery service fully initialized.');
+    _logger.info(
+      'DiscoveryService',
+      'Network discovery service fully initialized.',
+    );
   }
 
   void stop() {
@@ -91,7 +97,10 @@ class DiscoveryService {
   }
 
   Future<void> refresh() async {
-    _logger.info('DiscoveryService', 'Manually triggering network discovery refresh.');
+    _logger.info(
+      'DiscoveryService',
+      'Manually triggering network discovery refresh.',
+    );
     _mdnsService.query();
     await _networkScanner.broadcastPresence();
     await runHealthCheck();
@@ -112,16 +121,22 @@ class DiscoveryService {
 
     for (final paired in pairedDevices) {
       // Check if we already have it in discovery cache, else create initial entry
-      var current = _discoveredDevices[paired.id] ?? DiscoveredDevice(
-        device: paired,
-        isOnline: false,
-        connectionType: connectionType,
-        connectionQuality: ConnectionQuality.unreachable,
-        lastSeen: DateTime.now().subtract(const Duration(days: 30)),
-      );
+      var current =
+          _discoveredDevices[paired.id] ??
+          DiscoveredDevice(
+            device: paired,
+            isOnline: false,
+            connectionType: connectionType,
+            connectionQuality: ConnectionQuality.unreachable,
+            lastSeen: DateTime.now().subtract(const Duration(days: 30)),
+          );
 
-      final ipToPing = current.device.ipAddress.isNotEmpty ? current.device.ipAddress : paired.ipAddress;
-      final portToPing = current.device.port > 0 ? current.device.port : paired.port;
+      final ipToPing = current.device.ipAddress.isNotEmpty
+          ? current.device.ipAddress
+          : paired.ipAddress;
+      final portToPing = current.device.port > 0
+          ? current.device.port
+          : paired.port;
 
       if (ipToPing.isEmpty || ipToPing == '0.0.0.0') {
         // No IP address available yet
@@ -166,27 +181,35 @@ class DiscoveryService {
 
       // Handle logs and state changes
       if (!oldOnline && newOnline) {
-        _logger.info('DiscoveryService', 'Device online: ${paired.name} ($ipToPing)');
-        await _discoveryRepository.addHistoryEntry(DiscoveryHistoryEntry(
-          id: const Uuid().v4(),
-          deviceId: paired.id,
-          deviceName: paired.name,
-          eventType: 'Device Found',
-          timestamp: DateTime.now(),
-          ipAddress: ipToPing,
-          details: 'Discovered device on subnet with latency $latency ms ($quality)',
-        ));
+        _logger.info(
+          'DiscoveryService',
+          'Device online: ${paired.name} ($ipToPing)',
+        );
+        await _discoveryRepository.addHistoryEntry(
+          DiscoveryHistoryEntry(
+            id: const Uuid().v4(),
+            deviceId: paired.id,
+            deviceName: paired.name,
+            eventType: 'Device Found',
+            timestamp: DateTime.now(),
+            ipAddress: ipToPing,
+            details:
+                'Discovered device on subnet with latency $latency ms ($quality)',
+          ),
+        );
       } else if (oldOnline && !newOnline) {
         _logger.warning('DiscoveryService', 'Device offline: ${paired.name}');
-        await _discoveryRepository.addHistoryEntry(DiscoveryHistoryEntry(
-          id: const Uuid().v4(),
-          deviceId: paired.id,
-          deviceName: paired.name,
-          eventType: 'Device Lost',
-          timestamp: DateTime.now(),
-          ipAddress: ipToPing,
-          details: 'Device unreachable during heartbeat check.',
-        ));
+        await _discoveryRepository.addHistoryEntry(
+          DiscoveryHistoryEntry(
+            id: const Uuid().v4(),
+            deviceId: paired.id,
+            deviceName: paired.name,
+            eventType: 'Device Lost',
+            timestamp: DateTime.now(),
+            ipAddress: ipToPing,
+            details: 'Device unreachable during heartbeat check.',
+          ),
+        );
       }
     }
 
@@ -213,22 +236,35 @@ class DiscoveryService {
     if (paired != null) {
       final ipChanged = paired.ipAddress != ip || paired.port != port;
       if (ipChanged) {
-        _logger.info('DiscoveryService', 'Device IP/Port changed: ${paired.name} is now at $ip:$port');
-        final updatedDevice = paired.copyWith(ipAddress: ip, port: port, lastSeen: DateTime.now());
+        _logger.info(
+          'DiscoveryService',
+          'Device IP/Port changed: ${paired.name} is now at $ip:$port',
+        );
+        final updatedDevice = paired.copyWith(
+          ipAddress: ip,
+          port: port,
+          lastSeen: DateTime.now(),
+        );
         await _deviceRepository.addOrUpdateDevice(updatedDevice);
 
-        await _discoveryRepository.addHistoryEntry(DiscoveryHistoryEntry(
-          id: const Uuid().v4(),
-          deviceId: id,
-          deviceName: name,
-          eventType: 'Network Changed',
-          timestamp: DateTime.now(),
-          ipAddress: ip,
-          details: 'IP or Port changed from ${paired.ipAddress}:${paired.port} to $ip:$port',
-        ));
+        await _discoveryRepository.addHistoryEntry(
+          DiscoveryHistoryEntry(
+            id: const Uuid().v4(),
+            deviceId: id,
+            deviceName: name,
+            eventType: 'Network Changed',
+            timestamp: DateTime.now(),
+            ipAddress: ip,
+            details:
+                'IP or Port changed from ${paired.ipAddress}:${paired.port} to $ip:$port',
+          ),
+        );
       }
     } else {
-      _logger.info('DiscoveryService', 'Discovered unpaired nearby device: $name ($ip) | Platform: $platform | Version: $version');
+      _logger.info(
+        'DiscoveryService',
+        'Discovered unpaired nearby device: $name ($ip) | Platform: $platform | Version: $version',
+      );
     }
 
     // Perform validation and ping to compute quality metrics
@@ -254,21 +290,23 @@ class DiscoveryService {
       quality = ConnectionQuality.unreachable;
     }
 
-    final DeviceModel deviceModel = paired ?? DeviceModel(
-      id: id,
-      name: name,
-      platform: platform,
-      osVersion: version,
-      appVersion: version,
-      deviceModel: 'Generic',
-      pairingDate: DateTime.fromMillisecondsSinceEpoch(0),
-      lastSeen: DateTime.now(),
-      trustStatus: 'Pending',
-      connectionStatus: success ? 'Online' : 'Offline',
-      ipAddress: ip,
-      port: port,
-      storageInfo: 'Unknown',
-    );
+    final DeviceModel deviceModel =
+        paired ??
+        DeviceModel(
+          id: id,
+          name: name,
+          platform: platform,
+          osVersion: version,
+          appVersion: version,
+          deviceModel: 'Generic',
+          pairingDate: DateTime.fromMillisecondsSinceEpoch(0),
+          lastSeen: DateTime.now(),
+          trustStatus: 'Pending',
+          connectionStatus: success ? 'Online' : 'Offline',
+          ipAddress: ip,
+          port: port,
+          storageInfo: 'Unknown',
+        );
 
     final current = DiscoveredDevice(
       device: deviceModel,
@@ -286,11 +324,17 @@ class DiscoveryService {
 
   /// Manually add a device IP address (Manual IP Entry fallback)
   Future<bool> addDeviceManually(String ip, int port) async {
-    _logger.info('DiscoveryService', 'Attempting manual device connection check for $ip:$port');
-    
+    _logger.info(
+      'DiscoveryService',
+      'Attempting manual device connection check for $ip:$port',
+    );
+
     final success = await _networkScanner.pingAddress(ip, port);
     if (!success) {
-      _logger.warning('DiscoveryService', 'Manual connection failed to $ip:$port');
+      _logger.warning(
+        'DiscoveryService',
+        'Manual connection failed to $ip:$port',
+      );
       return false;
     }
 
@@ -319,7 +363,10 @@ class DiscoveryService {
       return true;
     }
 
-    _logger.warning('DiscoveryService', 'Manual IP entered is reachable but device is not paired.');
+    _logger.warning(
+      'DiscoveryService',
+      'Manual IP entered is reachable but device is not paired.',
+    );
     return true;
   }
 }

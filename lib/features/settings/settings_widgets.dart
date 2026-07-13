@@ -154,17 +154,21 @@ class SettingsDropdownTile<T> extends StatelessWidget {
               ),
             )
           : null,
-      trailing: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          value: value,
-          items: items,
-          onChanged: onChanged,
-          alignment: Alignment.centerRight,
-          icon: const Icon(Icons.arrow_drop_down_rounded),
-          dropdownColor: theme.colorScheme.surface,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            fontWeight: FontWeight.w500,
-            color: theme.colorScheme.onSurface,
+      trailing: SizedBox(
+        width: 140,
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<T>(
+            value: value,
+            items: items,
+            onChanged: onChanged,
+            alignment: Alignment.centerRight,
+            isExpanded: true,
+            icon: const Icon(Icons.arrow_drop_down_rounded),
+            dropdownColor: theme.colorScheme.surface,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+              color: theme.colorScheme.onSurface,
+            ),
           ),
         ),
       ),

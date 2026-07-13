@@ -102,10 +102,16 @@ class _FolderManagerScreenState extends ConsumerState<FolderManagerScreen> {
             const SizedBox(width: 8),
           ],
         ),
-        floatingActionButton: FloatingActionButton.extended(
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('Add Backup Folder'),
-          onPressed: () => _showAddFolderDialog(context, controller),
+        floatingActionButton: filteredAsync.when(
+          data: (folders) => folders.isEmpty
+              ? null
+              : FloatingActionButton.extended(
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Add Backup Folder'),
+                  onPressed: () => _showAddFolderDialog(context, controller),
+                ),
+          loading: () => null,
+          error: (_, __) => null,
         ),
         body: Column(
           children: [

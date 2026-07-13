@@ -67,8 +67,8 @@ class DashboardScreen extends ConsumerWidget {
               ? 4
               : (isTablet ? 3 : 2);
           final double aspectRatio = isDesktop
-              ? 1.5
-              : (isTablet ? 1.4 : 1.3);
+              ? 2.8
+              : (isTablet ? 2.2 : 1.25);
 
           return SingleChildScrollView(
             padding: EdgeInsets.all(isMobile ? 16 : 24),

@@ -36,9 +36,9 @@ class SystemTrayManager {
       const iconPath = 'assets/app_icon.ico';
 
       _isInitialized = await _systemTray.initSystemTray(
-        title: 'BackupVault',
+        title: 'Backup Valut',
         iconPath: iconPath,
-        toolTip: 'BackupVault - Idle',
+        toolTip: 'Backup Valut - Idle',
       );
 
       if (_isInitialized) {
@@ -117,7 +117,7 @@ class SystemTrayManager {
     if (!_isInitialized) return;
 
     try {
-      final tooltip = 'BackupVault\n'
+      final tooltip = 'Backup Valut\n'
           'Status: ${state.currentStatus}\n'
           'Remaining: ${state.filesRemaining} files\n'
           'Speed: ${state.currentSpeed}\n'

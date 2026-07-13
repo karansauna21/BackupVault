@@ -451,6 +451,7 @@ class _VersionHistoryScreenState extends ConsumerState<VersionHistoryScreen> wit
                     mainAxisSpacing: 16,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
+                    childAspectRatio: MediaQuery.of(context).size.width > 1200 ? 1.6 : 2.0,
                     children: [
                       _buildStatCard('Total Version Snapshots', stats.totalVersions.toString(), Icons.history_rounded, Colors.blue),
                       _buildStatCard('Average Versions/File', stats.averageVersionsPerFile.toStringAsFixed(1), Icons.analytics_rounded, Colors.purple),

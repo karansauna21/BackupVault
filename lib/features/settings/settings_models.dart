@@ -8,7 +8,7 @@ class GeneralSettings {
   final bool checkForUpdates;
 
   const GeneralSettings({
-    this.appName = 'BackupVault',
+    this.appName = 'Backup Valut',
     this.appVersion = '1.0.0',
     this.theme = 'system',
     this.language = 'en',
@@ -45,7 +45,7 @@ class GeneralSettings {
 
   factory GeneralSettings.fromJson(Map<String, dynamic> json) {
     return GeneralSettings(
-      appName: json['appName'] ?? 'BackupVault',
+      appName: json['appName'] ?? 'Backup Valut',
       appVersion: json['appVersion'] ?? '1.0.0',
       theme: json['theme'] ?? 'system',
       language: json['language'] ?? 'en',

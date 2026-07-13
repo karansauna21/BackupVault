@@ -779,7 +779,7 @@ class _AndroidSettingsPageState extends ConsumerState<AndroidSettingsPage> {
 
   Widget _buildAboutCategory(SettingsState s, ThemeData theme) {
     return SettingsCategoryCard(
-      title: 'About BackupVault',
+      title: 'About Backup Valut',
       icon: Icons.info_outline_rounded,
       children: [
         const SizedBox(height: 8),
@@ -789,7 +789,7 @@ class _AndroidSettingsPageState extends ConsumerState<AndroidSettingsPage> {
               Icon(Icons.shield_rounded, size: 64, color: theme.colorScheme.primary),
               const SizedBox(height: 12),
               Text(
-                'BackupVault',
+                'Backup Valut',
                 style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
               ),
               Text(

@@ -131,7 +131,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> with Sing
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
-              childAspectRatio: 1.4,
+              childAspectRatio: MediaQuery.of(context).size.width > 900 ? 1.8 : 1.4,
               children: [
                 _buildScoreCard(theme, 'Overall System', report.overallSystemScore, Colors.blue),
                 _buildScoreCard(theme, 'System Health', report.healthScore, Colors.green),
@@ -241,7 +241,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> with Sing
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
-            childAspectRatio: 2.5,
+            childAspectRatio: MediaQuery.of(context).size.width > 900 ? 3.0 : 4.5,
             children: [
               _buildMonitorCard(theme, 'CPU Load', '${metrics.cpuUsagePercent.toStringAsFixed(1)}%', Icons.developer_board_rounded, Colors.blue, metrics.cpuUsagePercent / 100.0),
               _buildMonitorCard(theme, 'RAM Usage', '${metrics.ramUsageMb.toStringAsFixed(0)} MB', Icons.memory_rounded, Colors.green, (metrics.ramUsageMb / 1024.0).clamp(0.0, 1.0)),
