@@ -100,14 +100,16 @@ class TransportManager {
   // --- Client Connection ---
 
   Future<SecureChannel> connectToDevice(DeviceModel device) async {
-    _logger.info('TransportManager', 'Connecting to device: ${device.name} (${device.ipAddress}:${device.port})...');
+    final targetPort = device.port == 8321 ? 8322 : device.port;
+    _logger.info('TransportManager', 'Connecting to device: ${device.name} (${device.ipAddress}:$targetPort)...');
     
-    final pairingToken = device.pairingToken ?? _db.getValue('pairing_token_${device.id}') ?? 'default_token';
+    final repoDevice = await _deviceRepository.getDeviceById(device.id);
+    final pairingToken = repoDevice?.pairingToken ?? device.pairingToken ?? _db.getValue('pairing_token_${device.id}') ?? 'default_token';
     final selfDeviceId = _db.getValue('self_device_uuid') ?? 'default_self_id';
 
     try {
-      final socket = await Socket.connect(device.ipAddress, device.port, timeout: const Duration(seconds: 10));
-      _logger.info('TransportManager', 'Raw socket connected to ${device.ipAddress}:${device.port}. Establishing SecureChannel...');
+      final socket = await Socket.connect(device.ipAddress, targetPort, timeout: const Duration(seconds: 10));
+      _logger.info('TransportManager', 'Raw socket connected to ${device.ipAddress}:$targetPort. Establishing SecureChannel...');
 
       late final SecureChannel channel;
       channel = SecureChannel(

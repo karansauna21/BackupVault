@@ -150,6 +150,7 @@ class ConnectionManager {
       socket = await Socket.connect(targetIp, targetPort, timeout: const Duration(seconds: 10));
       final payload = json.encode(requestJson);
       socket.write(payload);
+      await socket.flush();
       
       final completer = Completer<Map<String, dynamic>?>();
       socket.listen((data) {
@@ -171,13 +172,14 @@ class ConnectionManager {
     }
   }
 
-  void respondToRequest(Socket socket, Map<String, dynamic> responseJson) {
+  Future<void> respondToRequest(Socket socket, Map<String, dynamic> responseJson) async {
     try {
       socket.write(json.encode(responseJson));
+      await socket.flush();
     } catch (e) {
       _logger.error('DeviceManager', 'Failed to send pairing response: $e');
     } finally {
-      socket.close();
+      await socket.close();
     }
   }
 

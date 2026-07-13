@@ -77,10 +77,10 @@ class DevicePairingService {
   String startHostingPairing() {
     _activePairCode = generatePairCode();
     _activePairingToken = generatePairingToken();
-    _activePairCodeExpiry = DateTime.now().add(const Duration(seconds: 60));
+    _activePairCodeExpiry = DateTime.now().add(const Duration(seconds: 120));
     
-    // Clear the active code after 60 seconds
-    Timer(const Duration(seconds: 60), () {
+    // Clear the active code after 120 seconds
+    Timer(const Duration(seconds: 120), () {
       if (_activePairCodeExpiry != null && DateTime.now().isAfter(_activePairCodeExpiry!)) {
         _activePairCode = null;
         _activePairingToken = null;
@@ -257,7 +257,7 @@ class DevicePairingService {
       if (senderDevice.id.isEmpty || senderDevice.name.isEmpty || senderDevice.platform.isEmpty || senderDevice.appVersion.isEmpty) {
         await _logger.error('DeviceManager', '[HANDSHAKE ERROR] Missing required device metadata fields from $senderIp');
         if (socket != null) {
-          _connectionManager.respondToRequest(socket, {
+          await _connectionManager.respondToRequest(socket, {
             'status': 'rejected',
             'reason': 'missing_metadata',
           });
@@ -271,14 +271,14 @@ class DevicePairingService {
         if (existing.trustStatus == 'Blocked') {
           await _logger.warning('DeviceManager', '[HANDSHAKE BLOCKED] Blocked connection attempt from ${senderDevice.name} (${senderDevice.id})');
           if (socket != null) {
-            _connectionManager.respondToRequest(socket, {'status': 'blocked'});
+            await _connectionManager.respondToRequest(socket, {'status': 'blocked'});
           }
           return;
         }
         if (existing.trustStatus == 'Trusted') {
           await _logger.warning('DeviceManager', '[HANDSHAKE DUPLICATE] Pairing request from already trusted device: ${senderDevice.name} (${senderDevice.id})');
           if (socket != null) {
-            _connectionManager.respondToRequest(socket, {
+            await _connectionManager.respondToRequest(socket, {
               'status': 'rejected',
               'reason': 'duplicate_device',
             });
@@ -298,7 +298,7 @@ class DevicePairingService {
       if (!isTokenValid) {
         await _logger.warning('DeviceManager', '[HANDSHAKE ERROR] Invalid or mismatched QR pairing token from ${senderDevice.name}');
         if (socket != null) {
-          _connectionManager.respondToRequest(socket, {
+          await _connectionManager.respondToRequest(socket, {
             'status': 'rejected',
             'reason': 'invalid_token',
           });
@@ -321,7 +321,7 @@ class DevicePairingService {
       if (!isCodeValid) {
         await _logger.warning('DeviceManager', '[HANDSHAKE ERROR] Invalid or expired pairing code "$pairCode" from ${senderDevice.name}');
         if (socket != null) {
-          _connectionManager.respondToRequest(socket, {
+          await _connectionManager.respondToRequest(socket, {
             'status': 'rejected',
             'reason': 'invalid_code',
           });
@@ -340,7 +340,7 @@ class DevicePairingService {
         device: senderDevice,
         pairCode: pairCode,
         token: pairingToken,
-        expiresAt: DateTime.now().add(const Duration(seconds: 60)),
+        expiresAt: DateTime.now().add(const Duration(seconds: 120)),
         isIncoming: true,
         socket: socket,
       );
@@ -348,8 +348,8 @@ class DevicePairingService {
       _pendingRequests.add(request);
       _pendingRequestsController.add(_pendingRequests);
 
-      // 5. Set automatic expiration timer (60 seconds)
-      final timer = Timer(const Duration(seconds: 60), () {
+      // 5. Set automatic expiration timer (120 seconds)
+      final timer = Timer(const Duration(seconds: 120), () {
         _handleRequestExpiration(request.device.id);
       });
       _expirationTimers[request.device.id] = timer;
@@ -376,7 +376,7 @@ class DevicePairingService {
       await _logger.warning('DeviceManager', '[HANDSHAKE TIMEOUT] Pairing request from ${req.device.name} expired/timed out');
       
       if (req.socket != null) {
-        _connectionManager.respondToRequest(req.socket!, {'status': 'expired'});
+        await _connectionManager.respondToRequest(req.socket!, {'status': 'expired'});
       }
     }
   }
@@ -403,7 +403,7 @@ class DevicePairingService {
     await _logger.info('DeviceManager', '[HANDSHAKE STEP 3] Approving pairing request from ${req.device.name}');
 
     if (req.socket != null) {
-      _connectionManager.respondToRequest(req.socket!, response);
+      await _connectionManager.respondToRequest(req.socket!, response);
     }
 
     // Add to trusted database in SQLite
@@ -445,7 +445,7 @@ class DevicePairingService {
     await _logger.info('DeviceManager', '[HANDSHAKE REJECTED] Rejecting pairing request from ${req.device.name}');
 
     if (req.socket != null) {
-      _connectionManager.respondToRequest(req.socket!, response);
+      await _connectionManager.respondToRequest(req.socket!, response);
     }
   }
 
@@ -467,7 +467,7 @@ class DevicePairingService {
     await _logger.info('DeviceManager', '[HANDSHAKE BLOCKED] Blocking device ID $deviceId');
 
     if (req?.socket != null) {
-      _connectionManager.respondToRequest(req!.socket!, response);
+      await _connectionManager.respondToRequest(req!.socket!, response);
     }
 
     // Save as blocked in SQLite

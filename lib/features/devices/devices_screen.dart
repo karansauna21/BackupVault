@@ -451,6 +451,7 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                 onPressed: () async {
                   final ip = _ipController.text.trim();
                   final code = _pairCodeController.text.trim();
+                  final portVal = int.tryParse(_portController.text.trim()) ?? 8321;
                   if (ip.isNotEmpty && code.isNotEmpty) {
                     BuildContext? dialogContext;
                     showDialog(
@@ -470,7 +471,7 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                     bool success = false;
                     try {
                       final pairing = ref.read(devicePairingServiceProvider);
-                      success = await pairing.initiatePairing(ip, code);
+                      success = await pairing.initiatePairing(ip, code, port: portVal);
                     } catch (_) {
                       success = false;
                     } finally {
@@ -1265,7 +1266,7 @@ class _PairingCodeDialog extends ConsumerStatefulWidget {
 }
 
 class _PairingCodeDialogState extends ConsumerState<_PairingCodeDialog> {
-  int _secondsRemaining = 60;
+  int _secondsRemaining = 120;
   Timer? _timer;
   String _code = '';
   String _qrPayload = '';
@@ -1512,15 +1513,20 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
   Future<void> _startCamera() async {
     final logger = ref.read(loggingServiceProvider);
     try {
-      await logger.info('QrScanner', 'Initializing mobile scanner camera...');
-      await cameraController.start();
+      await logger.info('QrScanner', 'Setting camera initialized flag to true...');
       if (mounted) {
         setState(() {
           _cameraInitialized = true;
           _errorMessage = null;
         });
-        await logger.info('QrScanner', 'Camera started and live preview initialized successfully');
       }
+      
+      // Allow a brief frame delay so MobileScanner widget is mounted & texture registered
+      await Future.delayed(const Duration(milliseconds: 250));
+      
+      await logger.info('QrScanner', 'Initializing mobile scanner camera...');
+      await cameraController.start();
+      await logger.info('QrScanner', 'Camera started and live preview initialized successfully');
     } catch (e) {
       await logger.error('QrScanner', 'Failed to start camera preview: $e');
       if (mounted) {

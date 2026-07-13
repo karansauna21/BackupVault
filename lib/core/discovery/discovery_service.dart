@@ -154,6 +154,7 @@ class DiscoveryService {
       }
 
       current = current.copyWith(
+        device: paired,
         isOnline: newOnline,
         latencyMs: latency,
         connectionQuality: quality,
