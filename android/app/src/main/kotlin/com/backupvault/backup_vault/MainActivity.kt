@@ -168,6 +168,7 @@ class MainActivity : FlutterActivity() {
 
     private fun getAndroidPermissionString(permissionName: String): String? {
         return when (permissionName) {
+            "camera" -> Manifest.permission.CAMERA
             "readMediaImages" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES else null
             "readMediaVideo" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_VIDEO else null
             "readMediaAudio" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_AUDIO else null

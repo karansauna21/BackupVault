@@ -12,6 +12,9 @@ import '../../core/discovery/discovery_provider.dart';
 import '../../core/discovery/discovery_models.dart';
 import '../../core/discovery/discovery_manager.dart';
 import '../../core/services/device_pairing_service.dart';
+import '../../shared/providers/platform_providers.dart';
+import '../../core/services/logging_service.dart';
+import '../../core/services/connection_manager.dart';
 
 class DevicesScreen extends ConsumerStatefulWidget {
   const DevicesScreen({super.key});
@@ -26,6 +29,7 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
   final TextEditingController _portController = TextEditingController(text: '8321');
   final TextEditingController _pairCodeController = TextEditingController();
   final Set<String> _shownDialogDeviceIds = {};
+  final Map<String, BuildContext> _activeDialogContexts = {};
 
   @override
   void dispose() {
@@ -42,16 +46,28 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
       pendingRequestsStreamProvider,
       (previous, next) {
         next.whenData((requests) {
+          final activeIds = requests.map((r) => r.device.id).toSet();
+
+          // Auto-dismiss dialogs for requests that are no longer in the active list
+          final idsToDismiss = _shownDialogDeviceIds.difference(activeIds);
+          for (final id in idsToDismiss) {
+            final dialogCtx = _activeDialogContexts[id];
+            if (dialogCtx != null && dialogCtx.mounted) {
+              Navigator.pop(dialogCtx);
+            }
+          }
+
           if (requests.isNotEmpty) {
-            PendingPairingRequest? incoming;
             for (final r in requests) {
               if (r.isIncoming && !r.isExpired) {
-                incoming = r;
-                break;
+                if (!_shownDialogDeviceIds.contains(r.device.id) && context.mounted) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (context.mounted) {
+                      _showApprovalDialog(context, r);
+                    }
+                  });
+                }
               }
-            }
-            if (incoming != null) {
-              _showApprovalDialog(context, incoming);
             }
           }
         });
@@ -436,12 +452,19 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                   final ip = _ipController.text.trim();
                   final code = _pairCodeController.text.trim();
                   if (ip.isNotEmpty && code.isNotEmpty) {
+                    BuildContext? dialogContext;
                     showDialog(
                       context: context,
                       barrierDismissible: false,
-                      builder: (context) => const Center(
-                        child: CircularProgressIndicator(),
-                      ),
+                      builder: (ctx) {
+                        dialogContext = ctx;
+                        return const PopScope(
+                          canPop: false,
+                          child: Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      },
                     );
                     
                     bool success = false;
@@ -451,8 +474,8 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                     } catch (_) {
                       success = false;
                     } finally {
-                      if (context.mounted) {
-                        Navigator.pop(context); // Close progress dialog
+                      if (dialogContext != null && dialogContext!.mounted) {
+                        Navigator.pop(dialogContext!); // Close progress dialog
                       }
                     }
                     
@@ -605,9 +628,15 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                     style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    '${dev.device.ipAddress}:${dev.device.port} • ${dev.connectionType}',
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  Row(
+                    children: [
+                      Text(
+                        '${dev.device.ipAddress}:${dev.device.port} • ${dev.connectionType}',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildStatusBadge(theme, dev.device.trustStatus),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Row(
@@ -638,19 +667,66 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                   children: [
                     ElevatedButton(
                       onPressed: () async {
-                        if (isOnline) {
-                          await manager.disconnectDevice(dev.device.id);
+                        if (dev.device.trustStatus != 'Trusted') {
+                          // Start pairing handshake!
+                          BuildContext? dialogContext;
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (ctx) {
+                              dialogContext = ctx;
+                              return const PopScope(
+                                canPop: false,
+                                child: Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              );
+                            },
+                          );
+                          bool success = false;
+                          try {
+                            success = await ref.read(devicePairingServiceProvider).initiatePairing(
+                              dev.device.ipAddress,
+                              'direct',
+                            );
+                          } catch (_) {
+                            success = false;
+                          } finally {
+                            if (dialogContext != null && dialogContext!.mounted) {
+                              Navigator.pop(dialogContext!); // Close progress dialog
+                            }
+                          }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(success 
+                                    ? 'Device paired successfully!' 
+                                    : 'Pairing failed. Make sure the other device is online and accepting pairing requests.'),
+                                backgroundColor: success ? Colors.green : Colors.red,
+                              ),
+                            );
+                          }
                         } else {
-                          await manager.connectDevice(dev.device.id);
+                          if (isOnline) {
+                            await manager.disconnectDevice(dev.device.id);
+                          } else {
+                            await manager.connectDevice(dev.device.id);
+                          }
                         }
                       },
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         visualDensity: VisualDensity.compact,
-                        backgroundColor: isOnline ? theme.colorScheme.errorContainer : theme.colorScheme.primaryContainer,
-                        foregroundColor: isOnline ? theme.colorScheme.onErrorContainer : theme.colorScheme.onPrimaryContainer,
+                        backgroundColor: dev.device.trustStatus != 'Trusted'
+                            ? theme.colorScheme.primaryContainer
+                            : (isOnline ? theme.colorScheme.errorContainer : theme.colorScheme.primaryContainer),
+                        foregroundColor: dev.device.trustStatus != 'Trusted'
+                            ? theme.colorScheme.onPrimaryContainer
+                            : (isOnline ? theme.colorScheme.onErrorContainer : theme.colorScheme.onPrimaryContainer),
                       ),
-                      child: Text(isOnline ? 'Disconnect' : 'Connect'),
+                      child: Text(dev.device.trustStatus != 'Trusted'
+                          ? 'Pair'
+                          : (isOnline ? 'Disconnect' : 'Connect')),
                     ),
                     const SizedBox(width: 4),
                     IconButton(
@@ -926,10 +1002,13 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
 
   Widget _buildStatusBadge(ThemeData theme, String status) {
     Color color = Colors.orange;
+    String label = status;
     if (status == 'Trusted') {
       color = Colors.green;
     } else if (status == 'Blocked') {
       color = Colors.red;
+    } else if (status == 'Pending') {
+      label = 'Unpaired';
     }
 
     return Container(
@@ -939,7 +1018,7 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        status,
+        label,
         style: TextStyle(
           color: color,
           fontSize: 10,
@@ -1114,61 +1193,67 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Pairing Request Received'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('A device named "${request.device.name}" wants to pair with you.', style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Text('Platform: ${request.device.platform}'),
-            Text('Model: ${request.device.deviceModel}'),
-            Text('OS Version: ${request.device.osVersion}'),
-            const SizedBox(height: 16),
-            const Text('Do you trust this device and want to connect?'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              _shownDialogDeviceIds.remove(deviceId);
-              final messenger = ScaffoldMessenger.of(context);
-              Navigator.pop(context);
-              await ref.read(devicePairingServiceProvider).blockRequest(deviceId);
-              messenger.showSnackBar(
-                const SnackBar(content: Text('Device Blocked.')),
-              );
-            },
-            child: Text('Block', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+      builder: (dialogContext) {
+        _activeDialogContexts[deviceId] = dialogContext;
+        return PopScope(
+          canPop: false,
+          child: AlertDialog(
+            title: const Text('Pairing Request Received'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('A device named "${request.device.name}" wants to pair with you.', style: const TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                Text('Platform: ${request.device.platform}'),
+                Text('Model: ${request.device.deviceModel}'),
+                Text('OS Version: ${request.device.osVersion}'),
+                const SizedBox(height: 16),
+                const Text('Do you trust this device and want to connect?'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(dialogContext);
+                  Navigator.pop(dialogContext);
+                  await ref.read(devicePairingServiceProvider).blockRequest(deviceId);
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Device Blocked.')),
+                  );
+                },
+                child: Text('Block', style: TextStyle(color: Theme.of(dialogContext).colorScheme.error)),
+              ),
+              TextButton(
+                onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(dialogContext);
+                  Navigator.pop(dialogContext);
+                  await ref.read(devicePairingServiceProvider).rejectRequest(deviceId);
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Request Rejected.')),
+                  );
+                },
+                child: const Text('Reject'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(dialogContext);
+                  Navigator.pop(dialogContext);
+                  await ref.read(devicePairingServiceProvider).approveRequest(deviceId);
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Device Approved & Trusted!')),
+                  );
+                },
+                child: const Text('Approve & Trust'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () async {
-              _shownDialogDeviceIds.remove(deviceId);
-              final messenger = ScaffoldMessenger.of(context);
-              Navigator.pop(context);
-              await ref.read(devicePairingServiceProvider).rejectRequest(deviceId);
-              messenger.showSnackBar(
-                const SnackBar(content: Text('Request Rejected.')),
-              );
-            },
-            child: const Text('Reject'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              _shownDialogDeviceIds.remove(deviceId);
-              final messenger = ScaffoldMessenger.of(context);
-              Navigator.pop(context);
-              await ref.read(devicePairingServiceProvider).approveRequest(deviceId);
-              messenger.showSnackBar(
-                const SnackBar(content: Text('Device Approved & Trusted!')),
-              );
-            },
-            child: const Text('Approve & Trust'),
-          ),
-        ],
-      ),
-    );
+        );
+      },
+    ).then((_) {
+      _activeDialogContexts.remove(deviceId);
+      _shownDialogDeviceIds.remove(deviceId);
+    });
   }
 }
 
@@ -1185,6 +1270,7 @@ class _PairingCodeDialogState extends ConsumerState<_PairingCodeDialog> {
   String _code = '';
   String _qrPayload = '';
   bool _isLoading = true;
+  int? _initialPairedCount;
 
   @override
   void initState() {
@@ -1193,6 +1279,9 @@ class _PairingCodeDialogState extends ConsumerState<_PairingCodeDialog> {
   }
 
   void _initPairing() async {
+    final initialDevices = ref.read(pairedDevicesStreamProvider).value ?? [];
+    _initialPairedCount = initialDevices.length;
+
     final pairing = ref.read(devicePairingServiceProvider);
     final code = pairing.startHostingPairing();
     final payload = await pairing.getPairingQrPayload();
@@ -1229,6 +1318,17 @@ class _PairingCodeDialogState extends ConsumerState<_PairingCodeDialog> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<List<DeviceModel>>>(
+      pairedDevicesStreamProvider,
+      (previous, next) {
+        next.whenData((pairedList) {
+          if (_initialPairedCount != null && pairedList.length > _initialPairedCount!) {
+            Navigator.pop(context);
+          }
+        });
+      },
+    );
+
     final theme = Theme.of(context);
     if (_isLoading) {
       return const AlertDialog(
@@ -1347,7 +1447,125 @@ class QrScannerScreen extends ConsumerStatefulWidget {
 class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
   final TextEditingController _pasteController = TextEditingController();
   bool _isProcessing = false;
-  MobileScannerController cameraController = MobileScannerController();
+  
+  final MobileScannerController cameraController = MobileScannerController(
+    detectionSpeed: DetectionSpeed.noDuplicates,
+    facing: CameraFacing.back,
+    autoStart: false,
+  );
+
+  bool _hasPermission = false;
+  bool _cameraInitialized = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initCameraFlow();
+    });
+  }
+
+  Future<void> _initCameraFlow() async {
+    final logger = ref.read(loggingServiceProvider);
+    await logger.info('QrScanner', 'Starting camera permission initialization flow');
+
+    if (!Platform.isAndroid) {
+      setState(() {
+        _hasPermission = true;
+        _cameraInitialized = true;
+      });
+      return;
+    }
+
+    try {
+      final permManager = ref.read(permissionManagerProvider);
+      bool hasCam = await permManager.hasPermission('camera');
+      await logger.info('QrScanner', 'Initial camera permission status: $hasCam');
+      
+      if (!hasCam) {
+        await logger.info('QrScanner', 'Camera permission not granted, requesting automatically');
+        hasCam = await permManager.requestPermission('camera');
+        await logger.info('QrScanner', 'Camera permission request result: $hasCam');
+      }
+
+      if (hasCam) {
+        setState(() {
+          _hasPermission = true;
+          _errorMessage = null;
+        });
+        await _startCamera();
+      } else {
+        await logger.warning('QrScanner', 'Camera permission denied by user');
+        if (mounted) {
+          _showPermissionDeniedDialog();
+        }
+      }
+    } catch (e) {
+      await logger.error('QrScanner', 'Failed during permission/camera flow: $e');
+      setState(() {
+        _errorMessage = 'Error checking camera permissions: $e';
+      });
+    }
+  }
+
+  Future<void> _startCamera() async {
+    final logger = ref.read(loggingServiceProvider);
+    try {
+      await logger.info('QrScanner', 'Initializing mobile scanner camera...');
+      await cameraController.start();
+      if (mounted) {
+        setState(() {
+          _cameraInitialized = true;
+          _errorMessage = null;
+        });
+        await logger.info('QrScanner', 'Camera started and live preview initialized successfully');
+      }
+    } catch (e) {
+      await logger.error('QrScanner', 'Failed to start camera preview: $e');
+      if (mounted) {
+        setState(() {
+          _cameraInitialized = false;
+          _errorMessage = 'Failed to start camera. Please verify camera permissions or restart the app.';
+        });
+      }
+    }
+  }
+
+  void _showPermissionDeniedDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: const Text('Camera Permission Required'),
+          content: const Text(
+            'BackupVault needs access to your camera to scan pairing QR codes. '
+            'Please grant camera permission in the next prompt, or enable it in App Settings.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext); // Close dialog
+                if (mounted) {
+                  Navigator.pop(context); // Close QrScannerScreen
+                }
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(dialogContext); // Close dialog
+                _initCameraFlow();
+              },
+              child: const Text('Grant Permission'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -1362,30 +1580,61 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
       _isProcessing = true;
     });
 
+    // Retrieve BuildContext-dependent services before any async gaps
+    final messenger = ScaffoldMessenger.of(context);
+
+    final logger = ref.read(loggingServiceProvider);
+    await logger.info('QrScanner', 'QR Code payload detected: $payload');
+    
+    try {
+      await cameraController.stop();
+      await logger.info('QrScanner', 'Camera stopped successfully after detection');
+    } catch (e) {
+      await logger.warning('QrScanner', 'Failed to stop camera: $e');
+    }
+
     try {
       final data = json.decode(payload) as Map<String, dynamic>;
       final ip = data['ip'] as String;
+      final port = data['port'] as int? ?? ConnectionManager.tcpPort;
       final code = data['code'] as String;
+      final token = data['token'] as String? ?? '';
       final name = data['name'] as String? ?? 'Remote Device';
 
-      if (ip.isNotEmpty && code.isNotEmpty) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const Center(child: CircularProgressIndicator()),
-        );
+      await logger.info('QrScanner', 'Parsed pairing payload - IP: $ip, Port: $port, Code: $code, Token: $token, Name: $name');
 
-        final messenger = ScaffoldMessenger.of(context);
-        final navigator = Navigator.of(context);
-        
+      if (ip.isNotEmpty && code.isNotEmpty) {
+        BuildContext? dialogContext;
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) {
+              dialogContext = ctx;
+              return const PopScope(
+                canPop: false,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            },
+          );
+        }
+
         bool success = false;
         try {
-          success = await ref.read(devicePairingServiceProvider).initiatePairing(ip, code);
-        } catch (_) {
+          await logger.info('QrScanner', 'Starting pairing handshake automatically...');
+          success = await ref.read(devicePairingServiceProvider).initiatePairing(
+            ip,
+            code,
+            port: port,
+            qrToken: token,
+          );
+          await logger.info('QrScanner', 'Pairing handshake finished. Success: $success');
+        } catch (err) {
+          await logger.error('QrScanner', 'Error during automatic pairing: $err');
           success = false;
         } finally {
-          if (mounted) {
-            navigator.pop(); // Close progress dialog
+          if (dialogContext != null && dialogContext!.mounted) {
+            Navigator.pop(dialogContext!);
           }
         }
 
@@ -1397,22 +1646,25 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
             ),
           );
           if (success) {
-            navigator.pop(true); // Return success to previous screen
+            Navigator.pop(context, true);
           } else {
             setState(() {
               _isProcessing = false;
             });
+            _startCamera();
           }
         }
       } else {
         throw Exception('Invalid payload fields');
       }
     } catch (e) {
+      await logger.error('QrScanner', 'Failed to process pairing payload: $e');
       setState(() {
         _isProcessing = false;
       });
+      _startCamera();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(
             content: Text('Invalid QR Code. Please check the content and try again.'),
             backgroundColor: Colors.red,
@@ -1420,6 +1672,110 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
         );
       }
     }
+  }
+
+  Widget _buildCameraWidget(BuildContext context, ThemeData theme) {
+    if (_errorMessage != null) {
+      return Container(
+        height: 300,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: theme.colorScheme.error, width: 2),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline_rounded, size: 48, color: theme.colorScheme.error),
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.error),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _errorMessage = null;
+                  });
+                  _initCameraFlow();
+                },
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Retry Camera'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (!_hasPermission) {
+      return Container(
+        height: 300,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: theme.colorScheme.outlineVariant, width: 2),
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 12),
+              Text('Requesting camera permission...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (!_cameraInitialized) {
+      return Container(
+        height: 300,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: theme.colorScheme.outlineVariant, width: 2),
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 12),
+              Text('Starting camera preview...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      height: 300,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.colorScheme.primary, width: 2),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: MobileScanner(
+        controller: cameraController,
+        onDetect: (capture) {
+          final List<Barcode> barcodes = capture.barcodes;
+          for (final barcode in barcodes) {
+            final rawValue = barcode.rawValue;
+            if (rawValue != null) {
+              _processPayload(rawValue);
+              break;
+            }
+          }
+        },
+      ),
+    );
   }
 
   @override
@@ -1437,28 +1793,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
           child: Column(
             children: [
               if (isMobile) ...[
-                Container(
-                  height: 300,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: theme.colorScheme.primary, width: 2),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: MobileScanner(
-                    controller: cameraController,
-                    onDetect: (capture) {
-                      final List<Barcode> barcodes = capture.barcodes;
-                      for (final barcode in barcodes) {
-                        final rawValue = barcode.rawValue;
-                        if (rawValue != null) {
-                          cameraController.stop();
-                          _processPayload(rawValue);
-                          break;
-                        }
-                      }
-                    },
-                  ),
-                ),
+                _buildCameraWidget(context, theme),
                 const SizedBox(height: 16),
                 const Text('Point camera at the QR code on the other device'),
                 const SizedBox(height: 24),
@@ -1466,7 +1801,6 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
                 const SizedBox(height: 24),
               ],
               
-              // Fallback / Simulation / Desktop Entry
               Text(
                 'Simulate QR Scan (For Desktop/Testing)',
                 style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),

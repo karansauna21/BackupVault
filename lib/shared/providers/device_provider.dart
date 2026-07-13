@@ -32,7 +32,7 @@ final devicePairingServiceProvider = Provider<DevicePairingService>((ref) {
   final identity = ref.watch(deviceIdentityProvider);
   final conn = ref.watch(connectionManagerProvider);
   final logger = ref.watch(loggingServiceProvider);
-  return DevicePairingService(repo, identity, conn, logger);
+  return DevicePairingService(repo, identity, conn, logger, ref);
 });
 
 final deviceManagerProvider = Provider<DeviceManager>((ref) {

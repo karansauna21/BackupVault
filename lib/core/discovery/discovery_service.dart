@@ -206,30 +206,28 @@ class DiscoveryService {
 
     // Check if the device is paired
     final paired = await _deviceRepository.getDeviceById(id);
-    if (paired == null) {
-      // Unpaired device found, we can display it in Nearby Devices but not connect
-      _logger.info('DiscoveryService', 'Discovered unpaired nearby device: $name ($ip) | Platform: $platform | Version: $version');
-      return;
-    }
-
     final connectionType = await _networkScanner.getCurrentConnectionType();
 
     // Verify if IP or port changed
-    final ipChanged = paired.ipAddress != ip || paired.port != port;
-    if (ipChanged) {
-      _logger.info('DiscoveryService', 'Device IP/Port changed: ${paired.name} is now at $ip:$port');
-      final updatedDevice = paired.copyWith(ipAddress: ip, port: port, lastSeen: DateTime.now());
-      await _deviceRepository.addOrUpdateDevice(updatedDevice);
+    if (paired != null) {
+      final ipChanged = paired.ipAddress != ip || paired.port != port;
+      if (ipChanged) {
+        _logger.info('DiscoveryService', 'Device IP/Port changed: ${paired.name} is now at $ip:$port');
+        final updatedDevice = paired.copyWith(ipAddress: ip, port: port, lastSeen: DateTime.now());
+        await _deviceRepository.addOrUpdateDevice(updatedDevice);
 
-      await _discoveryRepository.addHistoryEntry(DiscoveryHistoryEntry(
-        id: const Uuid().v4(),
-        deviceId: id,
-        deviceName: name,
-        eventType: 'Network Changed',
-        timestamp: DateTime.now(),
-        ipAddress: ip,
-        details: 'IP or Port changed from ${paired.ipAddress}:${paired.port} to $ip:$port',
-      ));
+        await _discoveryRepository.addHistoryEntry(DiscoveryHistoryEntry(
+          id: const Uuid().v4(),
+          deviceId: id,
+          deviceName: name,
+          eventType: 'Network Changed',
+          timestamp: DateTime.now(),
+          ipAddress: ip,
+          details: 'IP or Port changed from ${paired.ipAddress}:${paired.port} to $ip:$port',
+        ));
+      }
+    } else {
+      _logger.info('DiscoveryService', 'Discovered unpaired nearby device: $name ($ip) | Platform: $platform | Version: $version');
     }
 
     // Perform validation and ping to compute quality metrics
@@ -255,18 +253,28 @@ class DiscoveryService {
       quality = ConnectionQuality.unreachable;
     }
 
-    final updatedModel = paired.copyWith(
+    final DeviceModel deviceModel = paired ?? DeviceModel(
+      id: id,
+      name: name,
+      platform: platform,
+      osVersion: version,
+      appVersion: version,
+      deviceModel: 'Generic',
+      pairingDate: DateTime.fromMillisecondsSinceEpoch(0),
+      lastSeen: DateTime.now(),
+      trustStatus: 'Pending',
+      connectionStatus: success ? 'Online' : 'Offline',
       ipAddress: ip,
       port: port,
-      lastSeen: success ? DateTime.now() : paired.lastSeen,
+      storageInfo: 'Unknown',
     );
 
     final current = DiscoveredDevice(
-      device: updatedModel,
+      device: deviceModel,
       isOnline: success,
       latencyMs: latency,
       connectionQuality: quality,
-      lastSeen: success ? DateTime.now() : (paired.lastSeen),
+      lastSeen: success ? DateTime.now() : (paired?.lastSeen ?? DateTime.now()),
       connectionType: connectionType,
     );
 

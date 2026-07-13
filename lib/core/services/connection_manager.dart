@@ -134,7 +134,7 @@ class ConnectionManager {
     } catch (_) {}
   }
 
-  Future<Map<String, dynamic>?> sendPairingRequest(String targetIp, Map<String, dynamic> requestJson) async {
+  Future<Map<String, dynamic>?> sendPairingRequest(String targetIp, Map<String, dynamic> requestJson, {int? port}) async {
     if (isSimulationMode) {
       // Return simulated success response
       return {
@@ -146,7 +146,8 @@ class ConnectionManager {
 
     Socket? socket;
     try {
-      socket = await Socket.connect(targetIp, tcpPort, timeout: const Duration(seconds: 10));
+      final targetPort = port ?? tcpPort;
+      socket = await Socket.connect(targetIp, targetPort, timeout: const Duration(seconds: 10));
       final payload = json.encode(requestJson);
       socket.write(payload);
       
