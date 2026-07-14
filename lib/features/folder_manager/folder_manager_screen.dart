@@ -111,7 +111,7 @@ class _FolderManagerScreenState extends ConsumerState<FolderManagerScreen> {
                   onPressed: () => _showAddFolderDialog(context, controller),
                 ),
           loading: () => null,
-          error: (_, __) => null,
+          error: (_, _) => null,
         ),
         body: Column(
           children: [

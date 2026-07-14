@@ -35,13 +35,36 @@ final devicePairingServiceProvider = Provider<DevicePairingService>((ref) {
   return DevicePairingService(repo, identity, conn, logger, ref);
 });
 
+class ConnectionNotification {
+  final String deviceName;
+  final String message;
+  ConnectionNotification(this.deviceName, this.message);
+}
+
+class ManualConnectionEventNotifier extends Notifier<ConnectionNotification?> {
+  @override
+  ConnectionNotification? build() => null;
+
+  void trigger(String deviceName, String message) {
+    state = ConnectionNotification(deviceName, message);
+  }
+
+  void reset() {
+    state = null;
+  }
+}
+
+final manualConnectionEventProvider = NotifierProvider<ManualConnectionEventNotifier, ConnectionNotification?>(() {
+  return ManualConnectionEventNotifier();
+});
+
 final deviceManagerProvider = Provider<DeviceManager>((ref) {
   final repo = ref.watch(deviceRepositoryProvider);
   final identity = ref.watch(deviceIdentityProvider);
   final conn = ref.watch(connectionManagerProvider);
   final logger = ref.watch(loggingServiceProvider);
   
-  final manager = DeviceManager(repo, identity, conn, logger);
+  final manager = DeviceManager(repo, identity, conn, logger, ref);
   // Auto-init
   manager.init();
   ref.onDispose(() => manager.dispose());

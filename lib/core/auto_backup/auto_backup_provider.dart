@@ -13,8 +13,14 @@ import 'sync_queue.dart';
 import 'sync_session.dart';
 import 'transfer_scheduler.dart';
 
+import 'sync_queue_manager.dart';
+
 final syncQueueProvider = Provider<SyncQueue>((ref) {
-  return SyncQueue();
+  return SyncQueueManager();
+});
+
+final syncQueueManagerProvider = Provider<SyncQueueManager>((ref) {
+  return ref.watch(syncQueueProvider) as SyncQueueManager;
 });
 
 final deviceSelectionManagerProvider = Provider<DeviceSelectionManager>((ref) {

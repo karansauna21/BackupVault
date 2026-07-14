@@ -254,7 +254,7 @@ class TransferSession {
             final candidateFile = File(candidatePath);
             if (!await candidateFile.exists()) {
               destFilePath = candidatePath;
-              _log('Version conflict: Creating new version at $destFilePath');
+              _log('Conflict: Version conflict. Creating new version at $destFilePath');
               break;
             }
             final candidateSha = await _calculateFileSha256(candidateFile);
@@ -328,11 +328,11 @@ class TransferSession {
           // File level progress
         },
         onCompleted: (filePath) {
-          _log('File fully reassembled and verified: $filePath');
+          _log('Verification: File fully reassembled and verified: $filePath');
           _completedFiles++;
         },
         onError: (err) {
-          _log('Packet reassembly error: $err');
+          _log('Verification: Packet reassembly error: $err');
         },
       );
     } else if (packet.type == PacketType.sessionEnd) {

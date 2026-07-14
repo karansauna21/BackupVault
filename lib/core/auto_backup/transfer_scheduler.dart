@@ -204,7 +204,7 @@ class TransferScheduler {
 
       logger.info(
         'TransferScheduler',
-        'Auto backup started: ${item.fileName} -> ${device.name}',
+        'Sync Started: ${item.filePath} to ${device.name}',
       );
 
       // Run transmission
@@ -277,7 +277,7 @@ class TransferScheduler {
 
           logger.info(
             'TransferScheduler',
-            'Transfer completed: ${item.fileName} successfully synced.',
+            'Sync Completed: ${item.filePath} successfully synced.',
           );
 
           // Save successful sync metadata
@@ -297,7 +297,7 @@ class TransferScheduler {
         stopwatch.stop();
         logger.error(
           'TransferScheduler',
-          'Transfer failed for ${item.fileName}: $e',
+          'Sync Failed: ${item.filePath} failed: $e',
         );
 
         db.setValue('failed_sync', DateTime.now().toIso8601String());
@@ -317,12 +317,16 @@ class TransferScheduler {
             _sessionsController.add(Map.from(_activeSyncSessions));
           }
         } else {
+          logger.warning(
+            'TransferScheduler',
+            'Retry: ${item.filePath} (${retries + 1}/${policy.retryCount})',
+          );
           queue.incrementRetry(item.id);
           queue.updateStatus(
             item.id,
             'waiting',
             errorMessage:
-                'Transfer failed. Retrying... (${retries + 1}/${policy.retryCount})',
+                'Sync Failed. Retrying... (${retries + 1}/${policy.retryCount})',
           );
 
           final finalSession = _activeSyncSessions[destDeviceId]?.copyWith(

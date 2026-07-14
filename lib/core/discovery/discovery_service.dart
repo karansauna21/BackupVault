@@ -1,5 +1,6 @@
 // ignore_for_file: prefer_initializing_formals
 import 'dart:async';
+import 'dart:io';
 import 'package:uuid/uuid.dart';
 
 import '../services/logging_service.dart';
@@ -23,8 +24,10 @@ class DiscoveryService {
       StreamController.broadcast();
   final Map<String, DiscoveredDevice> _discoveredDevices = {};
   Timer? _healthCheckTimer;
-  Duration _healthCheckInterval = const Duration(seconds: 15);
+  Duration _healthCheckInterval = const Duration(seconds: 5);
   bool _isRunning = false;
+  String? _previousConnectionType;
+  List<String> _previousLocalIps = [];
 
   Stream<List<DiscoveredDevice>> get onDevicesChanged =>
       _devicesStreamController.stream;
@@ -86,6 +89,7 @@ class DiscoveryService {
       'DiscoveryService',
       'Network discovery service fully initialized.',
     );
+    _logger.info('DiscoveryService', 'Discovery Started');
   }
 
   void stop() {
@@ -94,6 +98,7 @@ class DiscoveryService {
     _bonjourService.unregisterService();
     _networkScanner.stop();
     _logger.info('DiscoveryService', 'Stopped Network discovery service.');
+    _logger.info('DiscoveryService', 'Discovery Stopped');
   }
 
   Future<void> refresh() async {
@@ -116,8 +121,36 @@ class DiscoveryService {
   Future<void> runHealthCheck() async {
     if (!_isRunning) return;
 
-    final pairedDevices = await _deviceRepository.getDevices();
     final connectionType = await _networkScanner.getCurrentConnectionType();
+    List<String> currentLocalIps = [];
+    try {
+      final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4);
+      currentLocalIps = interfaces.expand((i) => i.addresses.map((a) => a.address)).toList();
+    } catch (_) {}
+
+    bool networkChanged = false;
+    if (_previousConnectionType != null && _previousConnectionType != connectionType) {
+      _logger.info('DiscoveryService', 'Network Change Detected: Connection type changed from $_previousConnectionType to $connectionType');
+      networkChanged = true;
+    }
+    if (_previousLocalIps.isNotEmpty && !_areListsEqual(_previousLocalIps, currentLocalIps)) {
+      _logger.info('DiscoveryService', 'Network Change Detected: Local IPs changed from $_previousLocalIps to $currentLocalIps');
+      networkChanged = true;
+    }
+
+    _previousConnectionType = connectionType;
+    _previousLocalIps = currentLocalIps;
+
+    if (networkChanged) {
+      _logger.info('DiscoveryService', 'Restarting discovery services due to network change.');
+      _bonjourService.unregisterService();
+      _networkScanner.stop();
+      await _bonjourService.registerService();
+      await _networkScanner.start();
+      _logger.info('DiscoveryService', 'Discovery services restarted automatically.');
+    }
+
+    final pairedDevices = await _deviceRepository.getDevices();
 
     for (final paired in pairedDevices) {
       // Check if we already have it in discovery cache, else create initial entry
@@ -179,12 +212,17 @@ class DiscoveryService {
 
       _discoveredDevices[paired.id] = current;
 
+      // Update SQLite database to keep it synchronized with health check results
+      final updatedPaired = paired.copyWith(
+        lastSeen: newOnline ? DateTime.now() : paired.lastSeen,
+        connectionStatus: newOnline ? 'Online' : 'Offline',
+      );
+      await _deviceRepository.addOrUpdateDevice(updatedPaired);
+
       // Handle logs and state changes
       if (!oldOnline && newOnline) {
-        _logger.info(
-          'DiscoveryService',
-          'Device online: ${paired.name} ($ipToPing)',
-        );
+        _logger.info('DiscoveryService', 'Device Found: ${paired.name} ($ipToPing)');
+        _logger.info('DiscoveryService', 'Device Found');
         await _discoveryRepository.addHistoryEntry(
           DiscoveryHistoryEntry(
             id: const Uuid().v4(),
@@ -198,6 +236,7 @@ class DiscoveryService {
           ),
         );
       } else if (oldOnline && !newOnline) {
+        _logger.info('DiscoveryService', 'Device Lost');
         _logger.warning('DiscoveryService', 'Device offline: ${paired.name}');
         await _discoveryRepository.addHistoryEntry(
           DiscoveryHistoryEntry(
@@ -317,6 +356,22 @@ class DiscoveryService {
       connectionType: connectionType,
     );
 
+    final oldDevice = _discoveredDevices[id];
+    final wasOnline = oldDevice?.isOnline ?? false;
+    final isOnline = success;
+
+    if ((oldDevice == null || !wasOnline) && isOnline) {
+      _logger.info('DiscoveryService', 'Device Found: $name ($ip)');
+      _logger.info('DiscoveryService', 'Device Found');
+    } else if (wasOnline && !isOnline) {
+      _logger.info('DiscoveryService', 'Device Lost');
+      _logger.warning('DiscoveryService', 'Device offline: $name');
+    }
+
+    if (oldDevice != null && (oldDevice.device.ipAddress != ip || oldDevice.device.port != port)) {
+      _logger.info('DiscoveryService', 'Device IP/Port changed: $name is now at $ip:$port');
+    }
+
     _discoveredDevices[id] = current;
     await _discoveryRepository.saveKnownDevices(discoveredDevicesList);
     _devicesStreamController.add(discoveredDevicesList);
@@ -367,6 +422,14 @@ class DiscoveryService {
       'DiscoveryService',
       'Manual IP entered is reachable but device is not paired.',
     );
+    return true;
+  }
+
+  bool _areListsEqual(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
     return true;
   }
 }

@@ -19,6 +19,7 @@ class ConnectionManager {
   // Callbacks
   void Function(DeviceModel device)? onDeviceDiscovered;
   void Function(Map<String, dynamic> requestJson, Socket socket)? onPairingRequestReceived;
+  Future<void> Function(Map<String, dynamic> handshakeJson, Socket socket)? onManualHandshakeReceived;
   
   // Port configuration
   static const int udpPort = 8320;
@@ -83,12 +84,23 @@ class ConnectionManager {
       _tcpServer = await ServerSocket.bind(InternetAddress.anyIPv4, tcpPort);
       _tcpServer?.listen((socket) {
         _activeTcpConnections.add(socket);
-        socket.listen((data) {
+        final remoteIp = socket.remoteAddress.address;
+        final remotePort = socket.remotePort;
+        _logger.info('ManualConnection', 'Connected: Accepted raw connection from $remoteIp:$remotePort');
+        _logger.info('PairCode', 'TCP Connected');
+
+        socket.listen((data) async {
           try {
             final message = utf8.decode(data);
             final jsonMap = json.decode(message) as Map<String, dynamic>;
-            if (onPairingRequestReceived != null) {
-              onPairingRequestReceived!(jsonMap, socket);
+            if (jsonMap['type'] == 'manual_handshake') {
+              if (onManualHandshakeReceived != null) {
+                await onManualHandshakeReceived!(jsonMap, socket);
+              }
+            } else {
+              if (onPairingRequestReceived != null) {
+                onPairingRequestReceived!(jsonMap, socket);
+              }
             }
           } catch (e) {
             _logger.error('DeviceManager', 'Error decoding TCP message: $e');
@@ -136,6 +148,7 @@ class ConnectionManager {
 
   Future<Map<String, dynamic>?> sendPairingRequest(String targetIp, Map<String, dynamic> requestJson, {int? port}) async {
     if (isSimulationMode) {
+      await _logger.info('PairCode', 'TCP Connected');
       // Return simulated success response
       return {
         'type': 'pairing_response',
@@ -148,6 +161,7 @@ class ConnectionManager {
     try {
       final targetPort = port ?? tcpPort;
       socket = await Socket.connect(targetIp, targetPort, timeout: const Duration(seconds: 10));
+      await _logger.info('PairCode', 'TCP Connected');
       final payload = json.encode(requestJson);
       socket.write(payload);
       await socket.flush();

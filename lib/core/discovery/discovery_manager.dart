@@ -106,9 +106,13 @@ class DiscoveryManager {
   }
 
   Future<bool> connectDevice(String deviceId) async {
+    _logger.info('DiscoveryService', 'Connection Requested');
     _logger.info('DiscoveryManager', 'Connecting to device $deviceId');
     final index = _cachedDevices.indexWhere((d) => d.device.id == deviceId);
-    if (index == -1) return false;
+    if (index == -1) {
+      _logger.warning('DiscoveryService', 'Connection Failed');
+      return false;
+    }
     final dev = _cachedDevices[index];
 
     if (_transportManager != null) {
@@ -133,9 +137,11 @@ class DiscoveryManager {
           ipAddress: dev.device.ipAddress,
           details: 'Connected successfully via Connection Engine.',
         ));
+        _logger.info('DiscoveryService', 'Connection Success');
         return true;
       } catch (e) {
         _logger.error('DiscoveryManager', 'Failed to connect via TransportManager: $e');
+        _logger.warning('DiscoveryService', 'Connection Failed');
         // fall back to simulation
       }
     }
@@ -158,6 +164,7 @@ class DiscoveryManager {
       ipAddress: dev.device.ipAddress,
       details: 'Connected successfully (Simulated).',
     ));
+    _logger.info('DiscoveryService', 'Connection Success');
     return true;
   }
 

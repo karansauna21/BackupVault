@@ -179,4 +179,47 @@ class DeviceRepository {
     }
     return null;
   }
+
+  Future<void> savePairCodeDetails(String code, DateTime createdAt, DateTime expiresAt) async {
+    final data = {
+      'pairCode': code,
+      'createdAt': createdAt.toIso8601String(),
+      'expiresAt': expiresAt.toIso8601String(),
+    };
+    _db.setValue('active_pair_code_details', json.encode(data));
+  }
+
+  Future<Map<String, dynamic>?> getPairCodeDetails() async {
+    final val = _db.getValue('active_pair_code_details');
+    if (val == null) return null;
+    return json.decode(val) as Map<String, dynamic>;
+  }
+
+  Future<void> addPairHistoryEntry(String deviceName, String platform, String status, String details) async {
+    List<Map<String, dynamic>> history = [];
+    final val = _db.getValue('pair_history');
+    if (val != null) {
+      try {
+        history = List<Map<String, dynamic>>.from(json.decode(val) as List);
+      } catch (_) {}
+    }
+    history.add({
+      'deviceName': deviceName,
+      'platform': platform,
+      'timestamp': DateTime.now().toIso8601String(),
+      'status': status,
+      'details': details,
+    });
+    _db.setValue('pair_history', json.encode(history));
+  }
+
+  Future<List<Map<String, dynamic>>> getPairHistory() async {
+    final val = _db.getValue('pair_history');
+    if (val == null) return [];
+    try {
+      return List<Map<String, dynamic>>.from(json.decode(val) as List);
+    } catch (_) {
+      return [];
+    }
+  }
 }

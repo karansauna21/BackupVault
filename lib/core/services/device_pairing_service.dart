@@ -73,20 +73,24 @@ class DevicePairingService {
 
   String? get activePairCode => _activePairCode;
 
+  DeviceRepository get repository => _repository;
+  DeviceIdentity get identity => _identity;
+
   /// Starts hosting pairing, generates a 6-digit code and starts the expiry timer.
   String startHostingPairing() {
     _activePairCode = generatePairCode();
     _activePairingToken = generatePairingToken();
-    _activePairCodeExpiry = DateTime.now().add(const Duration(seconds: 120));
+    _activePairCodeExpiry = DateTime.now().add(const Duration(seconds: 300));
     
-    // Clear the active code after 120 seconds
-    Timer(const Duration(seconds: 120), () {
-      if (_activePairCodeExpiry != null && DateTime.now().isAfter(_activePairCodeExpiry!)) {
-        _activePairCode = null;
-        _activePairingToken = null;
-        _activePairCodeExpiry = null;
-      }
-    });
+    // Save to key-value settings database asynchronously
+    _repository.savePairCodeDetails(
+      _activePairCode!,
+      DateTime.now(),
+      _activePairCodeExpiry!,
+    );
+    
+    // Log Pair Code Generated
+    _logger.info('PairCode', 'Pair Code Generated: $_activePairCode');
     
     return _activePairCode!;
   }
@@ -158,15 +162,26 @@ class DevicePairingService {
   Future<String> getPairingQrPayload() async {
     final ip = await getLocalIpAddress();
     final selfModel = await _identity.toModel(ip: ip, port: ConnectionManager.tcpPort);
+    
+    // Calculate expiration time (from active code expiry, or 5 minutes from now)
+    final expiry = _activePairCodeExpiry ?? DateTime.now().add(const Duration(seconds: 300));
+
     final payload = {
-      'ip': ip,
-      'port': ConnectionManager.tcpPort,
-      'code': _activePairCode ?? '',
-      'token': _activePairingToken ?? '',
-      'id': selfModel.id,
-      'name': selfModel.name,
+      'pairCode': _activePairCode ?? '',
+      'deviceUuid': selfModel.id,
+      'deviceName': selfModel.name,
+      'localIp': ip,
+      'tcpPort': ConnectionManager.tcpPort,
+      'appVersion': selfModel.appVersion,
+      'expirationTime': expiry.toIso8601String(),
     };
-    return json.encode(payload);
+    
+    final payloadString = json.encode(payload);
+    
+    // Log QR Generated
+    _logger.info('PairCode', 'QR Generated: $payloadString');
+    
+    return payloadString;
   }
 
   /// Generates a random 6-digit pair code.
@@ -188,6 +203,7 @@ class DevicePairingService {
     
     final targetPort = port ?? ConnectionManager.tcpPort;
     await _logger.info('DeviceManager', '[HANDSHAKE STEP 1] Initiating pairing request to $targetIp:$targetPort with code "$pairCode" and QR token "${qrToken ?? 'none'}"');
+    await _logger.info('PairCode', 'Pair Code Sent to $targetIp:$targetPort: $pairCode');
 
     final requestJson = {
       'type': 'pairing_request',
@@ -269,22 +285,38 @@ class DevicePairingService {
       final existing = await _repository.getDeviceById(senderDevice.id);
       if (existing != null) {
         if (existing.trustStatus == 'Blocked') {
-          await _logger.warning('DeviceManager', '[HANDSHAKE BLOCKED] Blocked connection attempt from ${senderDevice.name} (${senderDevice.id})');
+          await _logger.warning('PairCode', 'Validation Failed: Blocked connection attempt from ${senderDevice.name}');
+          await _repository.addPairHistoryEntry(senderDevice.name, senderDevice.platform, 'Blocked', 'Blocked connection attempt');
           if (socket != null) {
             await _connectionManager.respondToRequest(socket, {'status': 'blocked'});
           }
           return;
         }
         if (existing.trustStatus == 'Trusted') {
-          await _logger.warning('DeviceManager', '[HANDSHAKE DUPLICATE] Pairing request from already trusted device: ${senderDevice.name} (${senderDevice.id})');
+          await _logger.warning('PairCode', 'Validation Failed: Already Trusted Device');
+          await _repository.addPairHistoryEntry(senderDevice.name, senderDevice.platform, 'Failed', 'Already Trusted Device');
           if (socket != null) {
             await _connectionManager.respondToRequest(socket, {
               'status': 'rejected',
-              'reason': 'duplicate_device',
+              'reason': 'Already Trusted Device',
             });
           }
           return;
         }
+      }
+
+      // Check if there is already a pending request for this device and remove it
+      final isDuplicatePending = _pendingRequests.any((r) => r.device.id == senderDevice.id);
+      if (isDuplicatePending) {
+        await _logger.warning('PairCode', 'Validation Failed: Duplicate Device');
+        await _repository.addPairHistoryEntry(senderDevice.name, senderDevice.platform, 'Failed', 'Duplicate Device');
+        if (socket != null) {
+          await _connectionManager.respondToRequest(socket, {
+            'status': 'rejected',
+            'reason': 'Duplicate Device',
+          });
+        }
+        return;
       }
 
       // 2. Validate the pairing token from the QR payload if present
@@ -308,28 +340,34 @@ class DevicePairingService {
 
       // 3. Pair code verification (including expiration)
       final now = DateTime.now();
-      bool isCodeValid = false;
-      if (pairCode == 'direct' || pairCode.isEmpty) {
-        isCodeValid = true; 
-      } else {
-        isCodeValid = _activePairCode != null &&
-            _activePairCode == pairCode &&
-            _activePairCodeExpiry != null &&
-            now.isBefore(_activePairCodeExpiry!);
-      }
-
-      if (!isCodeValid) {
-        await _logger.warning('DeviceManager', '[HANDSHAKE ERROR] Invalid or expired pairing code "$pairCode" from ${senderDevice.name}');
+      bool isCodeExpired = _activePairCodeExpiry != null && now.isAfter(_activePairCodeExpiry!);
+      if (isCodeExpired) {
+        await _logger.warning('PairCode', 'Validation Failed: Expired Code');
+        await _repository.addPairHistoryEntry(senderDevice.name, senderDevice.platform, 'Failed', 'Expired Code');
         if (socket != null) {
           await _connectionManager.respondToRequest(socket, {
             'status': 'rejected',
-            'reason': 'invalid_code',
+            'reason': 'Expired Code',
           });
         }
         return;
       }
 
-      await _logger.info('DeviceManager', '[HANDSHAKE STEP 2 SUCCESS] Pairing request details verified. Adding pending request from ${senderDevice.name}');
+      bool isCodeMatch = _activePairCode != null && _activePairCode == pairCode;
+      if (!isCodeMatch && pairCode != 'direct' && pairCode.isNotEmpty) {
+        await _logger.warning('PairCode', 'Validation Failed: Wrong Pair Code');
+        await _repository.addPairHistoryEntry(senderDevice.name, senderDevice.platform, 'Failed', 'Wrong Pair Code');
+        if (socket != null) {
+          await _connectionManager.respondToRequest(socket, {
+            'status': 'rejected',
+            'reason': 'Wrong Pair Code',
+          });
+        }
+        return;
+      }
+
+      await _logger.info('PairCode', 'Validation Success');
+      await _logger.info('PairCode', 'Pair Code Validated');
 
       // Check if there is already a pending request for this device and remove it
       _pendingRequests.removeWhere((r) => r.device.id == senderDevice.id);
@@ -373,7 +411,8 @@ class DevicePairingService {
       _pendingRequestsController.add(_pendingRequests);
       _expirationTimers.remove(deviceId)?.cancel();
 
-      await _logger.warning('DeviceManager', '[HANDSHAKE TIMEOUT] Pairing request from ${req.device.name} expired/timed out');
+      await _logger.warning('PairCode', 'Validation Failed: Expired Code due to pending timeout');
+      await _repository.addPairHistoryEntry(req.device.name, req.device.platform, 'Failed', 'Expired Code (Pending Timeout)');
       
       if (req.socket != null) {
         await _connectionManager.respondToRequest(req.socket!, {'status': 'expired'});
@@ -401,6 +440,9 @@ class DevicePairingService {
     };
 
     await _logger.info('DeviceManager', '[HANDSHAKE STEP 3] Approving pairing request from ${req.device.name}');
+    await _logger.info('PairCode', 'Accepted pairing request from ${req.device.name}');
+    await _logger.info('PairCode', 'Pair Accepted');
+    await _repository.addPairHistoryEntry(req.device.name, req.device.platform, 'Accepted', 'Pairing request accepted by user');
 
     if (req.socket != null) {
       await _connectionManager.respondToRequest(req.socket!, response);
@@ -443,6 +485,9 @@ class DevicePairingService {
     };
 
     await _logger.info('DeviceManager', '[HANDSHAKE REJECTED] Rejecting pairing request from ${req.device.name}');
+    await _logger.info('PairCode', 'Rejected pairing request from ${req.device.name}');
+    await _logger.info('PairCode', 'Pair Rejected');
+    await _repository.addPairHistoryEntry(req.device.name, req.device.platform, 'Rejected', 'Pairing request rejected by user');
 
     if (req.socket != null) {
       await _connectionManager.respondToRequest(req.socket!, response);
@@ -491,18 +536,24 @@ class DevicePairingService {
   }
 
   // Simulation support for testing
-  void simulateIncomingRequest(DeviceModel sender, String code) {
-    _activePairCode = code;
-    _activePairingToken = generatePairingToken();
-    _activePairCodeExpiry = DateTime.now().add(const Duration(seconds: 120));
+  void simulateIncomingRequest(DeviceModel sender, String code, {bool overrideCode = true}) {
+    if (overrideCode) {
+      _activePairCode = code;
+      _activePairingToken = generatePairingToken();
+      _activePairCodeExpiry = DateTime.now().add(const Duration(seconds: 300));
+    }
     final payload = {
       'type': 'pairing_request',
       'device': sender.toJson(),
       'pairCode': code,
-      'qrToken': _activePairingToken,
+      'qrToken': _activePairingToken ?? '',
       'pairingToken': generatePairingToken(),
     };
     _handleIncomingPairingRequest(payload, null);
+  }
+
+  void setPairCodeExpiryForTest(DateTime expiry) {
+    _activePairCodeExpiry = expiry;
   }
 
   void dispose() {

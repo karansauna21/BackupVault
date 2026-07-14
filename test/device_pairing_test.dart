@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:backup_vault/core/models/device_model.dart';
 import 'package:backup_vault/features/settings/settings_database.dart';
@@ -519,5 +520,220 @@ void main() {
         expect(dbDevice!.trustStatus, equals('Pending'));
       },
     );
+  });
+
+  group('Pair Code Specific Validation Tests', () {
+    late SettingsDatabase dbB;
+    late DeviceRepository repoB;
+    late DeviceIdentity identityB;
+    late ConnectionManager connB;
+    late DevicePairingService pairingB;
+    late DeviceManager managerB;
+
+    setUp(() async {
+      dbB = SettingsDatabase(isInMemory: true);
+      await dbB.init();
+      repoB = DeviceRepository(dbB);
+      identityB = DeviceIdentity(dbB, FakeStorageProvider());
+      connB = ConnectionManager(FakeLoggingService());
+      pairingB = DevicePairingService(repoB, identityB, connB, FakeLoggingService());
+      managerB = DeviceManager(repoB, identityB, connB, FakeLoggingService());
+      managerB.setSimulationMode(true);
+      dbB.setValue('self_device_uuid', 'host-uuid-999');
+      dbB.setValue('self_device_name', 'Host Server');
+      dbB.setValue('self_device_platform', 'Windows');
+      await managerB.init();
+    });
+
+    tearDown(() {
+      managerB.dispose();
+      pairingB.dispose();
+      dbB.close();
+    });
+
+    test('Correct Pair Code starts pending request', () async {
+      final code = pairingB.startHostingPairing();
+      
+      final clientDevice = DeviceModel(
+        id: 'client-uuid-1',
+        name: 'Client Phone 1',
+        platform: 'Android',
+        osVersion: 'Android 13',
+        appVersion: '1.0.0',
+        deviceModel: 'Pixel 7',
+        pairingDate: DateTime.now(),
+        lastSeen: DateTime.now(),
+        trustStatus: 'Pending',
+        connectionStatus: 'Online',
+        ipAddress: '192.168.1.50',
+        port: 8321,
+        storageInfo: 'Unknown',
+      );
+
+      pairingB.simulateIncomingRequest(clientDevice, code);
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      expect(pairingB.pendingRequests.length, equals(1));
+      expect(pairingB.pendingRequests.first.device.id, equals(clientDevice.id));
+    });
+
+    test('Wrong Pair Code does not start pending request', () async {
+      pairingB.startHostingPairing();
+      
+      final clientDevice = DeviceModel(
+        id: 'client-uuid-2',
+        name: 'Client Phone 2',
+        platform: 'Android',
+        osVersion: 'Android 13',
+        appVersion: '1.0.0',
+        deviceModel: 'Pixel 7',
+        pairingDate: DateTime.now(),
+        lastSeen: DateTime.now(),
+        trustStatus: 'Pending',
+        connectionStatus: 'Online',
+        ipAddress: '192.168.1.50',
+        port: 8321,
+        storageInfo: 'Unknown',
+      );
+
+      pairingB.simulateIncomingRequest(clientDevice, '000000', overrideCode: false); // Wrong code
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      expect(pairingB.pendingRequests.isEmpty, isTrue);
+    });
+
+    test('Expired Pair Code does not start pending request', () async {
+      final code = pairingB.startHostingPairing();
+      
+      // Simulate expiration by setting active pair code expiry to a past time
+      pairingB.setPairCodeExpiryForTest(DateTime.now().subtract(const Duration(seconds: 1)));
+
+      final clientDevice = DeviceModel(
+        id: 'client-uuid-3',
+        name: 'Client Phone 3',
+        platform: 'Android',
+        osVersion: 'Android 13',
+        appVersion: '1.0.0',
+        deviceModel: 'Pixel 7',
+        pairingDate: DateTime.now(),
+        lastSeen: DateTime.now(),
+        trustStatus: 'Pending',
+        connectionStatus: 'Online',
+        ipAddress: '192.168.1.50',
+        port: 8321,
+        storageInfo: 'Unknown',
+      );
+
+      pairingB.simulateIncomingRequest(clientDevice, code, overrideCode: false);
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      expect(pairingB.pendingRequests.isEmpty, isTrue);
+    });
+
+    test('Already Trusted Device cannot trigger duplicate request', () async {
+      final code = pairingB.startHostingPairing();
+
+      final clientDevice = DeviceModel(
+        id: 'client-uuid-4',
+        name: 'Client Phone 4',
+        platform: 'Android',
+        osVersion: 'Android 13',
+        appVersion: '1.0.0',
+        deviceModel: 'Pixel 7',
+        pairingDate: DateTime.now(),
+        lastSeen: DateTime.now(),
+        trustStatus: 'Trusted', // Already Trusted
+        connectionStatus: 'Online',
+        ipAddress: '192.168.1.50',
+        port: 8321,
+        storageInfo: 'Unknown',
+      );
+
+      await repoB.addOrUpdateDevice(clientDevice);
+
+      pairingB.simulateIncomingRequest(clientDevice, code, overrideCode: false);
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      expect(pairingB.pendingRequests.isEmpty, isTrue);
+    });
+
+    test('Duplicate pending pairing request is rejected', () async {
+      final code = pairingB.startHostingPairing();
+
+      final clientDevice = DeviceModel(
+        id: 'client-uuid-5',
+        name: 'Client Phone 5',
+        platform: 'Android',
+        osVersion: 'Android 13',
+        appVersion: '1.0.0',
+        deviceModel: 'Pixel 7',
+        pairingDate: DateTime.now(),
+        lastSeen: DateTime.now(),
+        trustStatus: 'Pending',
+        connectionStatus: 'Online',
+        ipAddress: '192.168.1.50',
+        port: 8321,
+        storageInfo: 'Unknown',
+      );
+
+      // Start first request
+      pairingB.simulateIncomingRequest(clientDevice, code, overrideCode: false);
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(pairingB.pendingRequests.length, equals(1));
+
+      // Try sending duplicate request
+      pairingB.simulateIncomingRequest(clientDevice, code, overrideCode: false);
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      // The original request should remain active, but duplicate is blocked
+      expect(pairingB.pendingRequests.length, equals(1));
+      
+      final history = await repoB.getPairHistory();
+      expect(history.any((entry) => entry['status'] == 'Failed' && entry['details'] == 'Duplicate Device'), isTrue);
+    });
+  });
+
+  group('QR Pairing Integration Tests', () {
+    late SettingsDatabase dbC;
+    late DeviceRepository repoC;
+    late DeviceIdentity identityC;
+    late ConnectionManager connC;
+    late DevicePairingService pairingC;
+    late DeviceManager managerC;
+
+    setUp(() async {
+      dbC = SettingsDatabase(isInMemory: true);
+      await dbC.init();
+      repoC = DeviceRepository(dbC);
+      identityC = DeviceIdentity(dbC, FakeStorageProvider());
+      connC = ConnectionManager(FakeLoggingService());
+      pairingC = DevicePairingService(repoC, identityC, connC, FakeLoggingService());
+      managerC = DeviceManager(repoC, identityC, connC, FakeLoggingService());
+      managerC.setSimulationMode(true);
+      dbC.setValue('self_device_uuid', 'host-uuid-777');
+      dbC.setValue('self_device_name', 'QR Host');
+      dbC.setValue('self_device_platform', 'Windows');
+      await managerC.init();
+    });
+
+    tearDown(() {
+      managerC.dispose();
+      pairingC.dispose();
+      dbC.close();
+    });
+
+    test('Host generates correct QR Payload structure', () async {
+      pairingC.startHostingPairing();
+      final qrPayload = await pairingC.getPairingQrPayload();
+      final data = json.decode(qrPayload) as Map<String, dynamic>;
+
+      expect(data['pairCode'], isNotEmpty);
+      expect(data['deviceUuid'], equals('host-uuid-777'));
+      expect(data['deviceName'], equals('QR Host'));
+      expect(data['localIp'], isNotEmpty);
+      expect(data['tcpPort'], equals(ConnectionManager.tcpPort));
+      expect(data['appVersion'], isNotEmpty);
+      expect(data['expirationTime'], isNotEmpty);
+    });
   });
 }

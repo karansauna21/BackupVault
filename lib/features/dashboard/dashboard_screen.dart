@@ -621,11 +621,12 @@ class DashboardScreen extends ConsumerWidget {
     }
 
     final int connected = autoBackupStats['connectedDevices'] ?? 0;
-    final int pending = autoBackupStats['pendingFiles'] ?? 0;
     final double speed = autoBackupStats['currentSpeed'] ?? 0.0;
     final int eta = autoBackupStats['eta'] ?? 0;
     final String currentFile = autoBackupStats['currentTransfer'] ?? 'None';
     final DateTime? lastSync = autoBackupStats['lastSync'] as DateTime?;
+    final int filesRemaining = autoBackupStats['filesRemaining'] ?? 0;
+    final String currentFolder = autoBackupStats['currentFolder'] ?? 'None';
 
     return Card(
       elevation: 0,
@@ -666,7 +667,7 @@ class DashboardScreen extends ConsumerWidget {
                       Text(
                         status.toUpperCase(),
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: statusColor,
+                           color: statusColor,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -681,7 +682,8 @@ class DashboardScreen extends ConsumerWidget {
               runSpacing: 16,
               children: [
                 _buildStatTile(theme, 'Connected Devices', '$connected online', Icons.devices_rounded),
-                _buildStatTile(theme, 'Pending Files', '$pending in queue', Icons.queue_rounded),
+                _buildStatTile(theme, 'Files Remaining', '$filesRemaining left', Icons.hourglass_empty_rounded),
+                _buildStatTile(theme, 'Current Folder', currentFolder, Icons.folder_open_rounded),
                 _buildStatTile(theme, 'Current Speed', formatSpeed(speed), Icons.speed_rounded),
                 _buildStatTile(theme, 'ETA', eta > 0 ? '${eta}s' : 'N/A', Icons.timer_rounded),
                 _buildStatTile(theme, 'Last Sync', lastSync != null ? _formatDateTime(lastSync) : 'Never', Icons.history_rounded),

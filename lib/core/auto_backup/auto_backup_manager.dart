@@ -52,11 +52,12 @@ class AutoBackupManager {
     final enabled = db.getValue('auto_backup_enabled') == 'true';
     if (!enabled) return;
 
-    // Check if this event represents a new, modified, or renamed file
+    // Check if this event represents a new, modified, renamed, or deleted file
     final isTargetEvent = event.type == FileEventType.newFile ||
                           event.type == FileEventType.modifiedFile ||
                           event.type == FileEventType.renamedFile ||
-                          event.type == FileEventType.movedFile;
+                          event.type == FileEventType.movedFile ||
+                          event.type == FileEventType.deletedFile;
 
     if (!isTargetEvent || event.isDir) return;
 
@@ -64,14 +65,15 @@ class AutoBackupManager {
         ? event.destinationPath
         : event.path;
 
-    if (targetPath == null || !File(targetPath).existsSync()) return;
+    if (targetPath == null) return;
+    final isDeleted = event.type == FileEventType.deletedFile;
+    if (!isDeleted && !File(targetPath).existsSync()) return;
 
     // Retrieve active destination devices selected by the user
     final selectedDevices = selectionManager.getSelectedDestinationDeviceIds();
     if (selectedDevices.isEmpty) return;
 
-    final file = File(targetPath);
-    final size = await file.length();
+    final size = isDeleted ? 0 : await File(targetPath).length();
     final fileName = p.basename(targetPath);
 
     logger.info('AutoBackupManager', 'Watcher event detected: ${event.type}. Queueing $fileName for ${selectedDevices.length} destination devices.');
@@ -86,6 +88,7 @@ class AutoBackupManager {
         destDeviceId: deviceId,
         addedAt: DateTime.now(),
         priority: 1, // Normal priority by default
+        status: isDeleted ? 'completed' : 'waiting',
       );
       queue.enqueue(queueItem);
     }
@@ -155,10 +158,12 @@ class AutoBackupManager {
   Map<String, dynamic> getDashboardStats() {
     final pendingCount = queue.items.where((i) => i.status == 'waiting').length;
     final syncingItems = queue.items.where((i) => i.status == 'syncing').toList();
+    final filesRemaining = pendingCount + syncingItems.length;
 
     double speed = 0.0;
     int eta = 0;
     String? currentFile;
+    String? currentFolder;
     
     // Sum active session metrics
     for (final session in scheduler.activeSessions.values) {
@@ -167,6 +172,11 @@ class AutoBackupManager {
         eta = session.etaSeconds > eta ? session.etaSeconds : eta;
         currentFile = session.currentFile;
       }
+    }
+
+    if (syncingItems.isNotEmpty) {
+      final item = syncingItems.first;
+      currentFolder = p.dirname(item.filePath);
     }
 
     final lastSyncStr = db.getValue('last_successful_sync');
@@ -191,6 +201,8 @@ class AutoBackupManager {
       'connectedDevices': scheduler.activeSessions.length,
       'pendingFiles': pendingCount,
       'currentTransfer': currentFile ?? (syncingItems.isNotEmpty ? syncingItems.first.fileName : 'None'),
+      'currentFolder': currentFolder ?? 'None',
+      'filesRemaining': filesRemaining,
       'currentSpeed': speed, // bytes/sec
       'eta': eta, // seconds
       'lastSync': lastSync,
