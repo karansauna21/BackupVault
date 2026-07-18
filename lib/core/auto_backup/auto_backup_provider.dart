@@ -13,6 +13,9 @@ import 'sync_queue.dart';
 import 'sync_session.dart';
 import 'transfer_scheduler.dart';
 
+import '../../shared/providers/platform_providers.dart';
+import '../../shared/providers/notification_provider.dart';
+
 import 'sync_queue_manager.dart';
 
 final syncQueueProvider = Provider<SyncQueue>((ref) {
@@ -35,6 +38,8 @@ final transferSchedulerProvider = Provider<TransferScheduler>((ref) {
   final logger = ref.watch(loggingServiceProvider);
   final db = ref.watch(settingsDatabaseProvider);
   final scanner = ref.watch(networkScannerProvider);
+  final platformInfo = ref.watch(platformInfoProvider);
+  final notificationService = ref.watch(notificationServiceProvider);
 
   final scheduler = TransferScheduler(
     queue: queue,
@@ -43,6 +48,8 @@ final transferSchedulerProvider = Provider<TransferScheduler>((ref) {
     logger: logger,
     db: db,
     networkScanner: scanner,
+    platformInfo: platformInfo,
+    notificationService: notificationService,
   );
 
   scheduler.start();

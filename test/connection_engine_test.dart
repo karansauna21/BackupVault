@@ -18,6 +18,8 @@ import 'package:backup_vault/core/transport/secure_channel.dart';
 import 'package:backup_vault/core/transport/heartbeat_service.dart';
 import 'package:backup_vault/core/transport/reconnect_service.dart';
 
+import 'package:drift/native.dart';
+
 class FakeBackupLogRepository implements BackupLogRepository {
   @override
   Future<int> addLog(dynamic log) async => 0;
@@ -67,6 +69,7 @@ void main() {
 
   group('Connection Engine Tests', () {
     late SettingsDatabase db;
+    late AppDatabase appDb;
     late DeviceRepository deviceRepo;
     late FakeLoggingService logger;
     late TransportManager transportManager;
@@ -76,14 +79,16 @@ void main() {
     setUp(() async {
       db = SettingsDatabase(isInMemory: true);
       await db.init();
+      appDb = AppDatabase(executor: NativeDatabase.memory());
 
-      deviceRepo = DeviceRepository(db);
+      deviceRepo = DeviceRepository(db, appDb);
       logger = FakeLoggingService();
-      transportManager = TransportManager(db, deviceRepo, logger);
+      transportManager = TransportManager(db, deviceRepo, logger, appDb);
     });
 
     tearDown(() async {
       await transportManager.stopServer();
+      await appDb.close();
       db.close();
     });
 

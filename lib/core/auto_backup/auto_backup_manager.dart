@@ -47,10 +47,9 @@ class AutoBackupManager {
     _watcherSubscription = null;
   }
 
-  /// Intercepts and processes file events from FolderMonitor
   Future<void> handleFileEvent(FileEvent event) async {
-    final enabled = db.getValue('auto_backup_enabled') == 'true';
-    if (!enabled) return;
+    final policy = scheduler.getSyncPolicy();
+    if (!policy.autoBackupEnabled) return;
 
     // Check if this event represents a new, modified, renamed, or deleted file
     final isTargetEvent = event.type == FileEventType.newFile ||
@@ -74,6 +73,19 @@ class AutoBackupManager {
     if (selectedDevices.isEmpty) return;
 
     final size = isDeleted ? 0 : await File(targetPath).length();
+
+    // Ignore Small Changes constraint
+    if (policy.ignoreSmallChanges && !isDeleted) {
+      final thresholdBytes = policy.ignoreChangesUnderMb * 1024 * 1024;
+      if (size < thresholdBytes) {
+        logger.info(
+          'AutoBackupManager',
+          'Ignoring small file change: $targetPath ($size bytes < $thresholdBytes bytes)',
+        );
+        return;
+      }
+    }
+
     final fileName = p.basename(targetPath);
 
     logger.info('AutoBackupManager', 'Watcher event detected: ${event.type}. Queueing $fileName for ${selectedDevices.length} destination devices.');

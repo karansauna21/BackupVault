@@ -212,6 +212,14 @@ class MonitoringSettings {
   final int eventQueueSize;
   final int folderScanIntervalSecs;
 
+  // Auto Backup specific settings
+  final bool backupOnlyOnWifi;
+  final bool backupOnlyWhileCharging;
+  final bool batterySaverCompatible;
+  final bool ignoreSmallChanges;
+  final int ignoreChangesUnderMb;
+  final bool enableBackgroundNotifications;
+
   const MonitoringSettings({
     this.enableRealtimeMonitoring = true,
     this.pauseMonitoring = false,
@@ -220,6 +228,12 @@ class MonitoringSettings {
     this.scanDelayMs = 100,
     this.eventQueueSize = 1000,
     this.folderScanIntervalSecs = 300,
+    this.backupOnlyOnWifi = true,
+    this.backupOnlyWhileCharging = false,
+    this.batterySaverCompatible = true,
+    this.ignoreSmallChanges = false,
+    this.ignoreChangesUnderMb = 1,
+    this.enableBackgroundNotifications = true,
   });
 
   MonitoringSettings copyWith({
@@ -230,6 +244,12 @@ class MonitoringSettings {
     int? scanDelayMs,
     int? eventQueueSize,
     int? folderScanIntervalSecs,
+    bool? backupOnlyOnWifi,
+    bool? backupOnlyWhileCharging,
+    bool? batterySaverCompatible,
+    bool? ignoreSmallChanges,
+    int? ignoreChangesUnderMb,
+    bool? enableBackgroundNotifications,
   }) {
     return MonitoringSettings(
       enableRealtimeMonitoring: enableRealtimeMonitoring ?? this.enableRealtimeMonitoring,
@@ -239,6 +259,12 @@ class MonitoringSettings {
       scanDelayMs: scanDelayMs ?? this.scanDelayMs,
       eventQueueSize: eventQueueSize ?? this.eventQueueSize,
       folderScanIntervalSecs: folderScanIntervalSecs ?? this.folderScanIntervalSecs,
+      backupOnlyOnWifi: backupOnlyOnWifi ?? this.backupOnlyOnWifi,
+      backupOnlyWhileCharging: backupOnlyWhileCharging ?? this.backupOnlyWhileCharging,
+      batterySaverCompatible: batterySaverCompatible ?? this.batterySaverCompatible,
+      ignoreSmallChanges: ignoreSmallChanges ?? this.ignoreSmallChanges,
+      ignoreChangesUnderMb: ignoreChangesUnderMb ?? this.ignoreChangesUnderMb,
+      enableBackgroundNotifications: enableBackgroundNotifications ?? this.enableBackgroundNotifications,
     );
   }
 
@@ -250,6 +276,12 @@ class MonitoringSettings {
         'scanDelayMs': scanDelayMs,
         'eventQueueSize': eventQueueSize,
         'folderScanIntervalSecs': folderScanIntervalSecs,
+        'backupOnlyOnWifi': backupOnlyOnWifi,
+        'backupOnlyWhileCharging': backupOnlyWhileCharging,
+        'batterySaverCompatible': batterySaverCompatible,
+        'ignoreSmallChanges': ignoreSmallChanges,
+        'ignoreChangesUnderMb': ignoreChangesUnderMb,
+        'enableBackgroundNotifications': enableBackgroundNotifications,
       };
 
   factory MonitoringSettings.fromJson(Map<String, dynamic> json) {
@@ -261,6 +293,12 @@ class MonitoringSettings {
       scanDelayMs: json['scanDelayMs'] ?? 100,
       eventQueueSize: json['eventQueueSize'] ?? 1000,
       folderScanIntervalSecs: json['folderScanIntervalSecs'] ?? 300,
+      backupOnlyOnWifi: json['backupOnlyOnWifi'] ?? true,
+      backupOnlyWhileCharging: json['backupOnlyWhileCharging'] ?? false,
+      batterySaverCompatible: json['batterySaverCompatible'] ?? true,
+      ignoreSmallChanges: json['ignoreSmallChanges'] ?? false,
+      ignoreChangesUnderMb: json['ignoreChangesUnderMb'] ?? 1,
+      enableBackgroundNotifications: json['enableBackgroundNotifications'] ?? true,
     );
   }
 }

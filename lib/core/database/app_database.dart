@@ -15,16 +15,26 @@ class BackupFolders extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   // For compatibility with the existing UI and view models
-  TextColumn get backupInterval => text().withDefault(const Constant('manual'))();
+  TextColumn get backupInterval =>
+      text().withDefault(const Constant('manual'))();
   DateTimeColumn get lastBackupAt => dateTime().nullable()();
   DateTimeColumn get nextBackupAt => dateTime().nullable()();
+
+  // Destination Metadata fields
+  TextColumn get destinationType => text().nullable()(); // 'local' or 'remote'
+  TextColumn get deviceUuid => text().nullable()();
+  TextColumn get deviceName => text().nullable()();
+  TextColumn get remoteFolderId => text().nullable()();
+  TextColumn get remoteFolderPath => text().nullable()();
+  DateTimeColumn get lastVerified => dateTime().nullable()();
 }
 
 @TableIndex(name: 'idx_backup_files_name', columns: {#fileName})
 @TableIndex(name: 'idx_backup_files_sha', columns: {#sha256})
 class BackupFiles extends Table {
   IntColumn get id => integer().autoIncrement()();
-  IntColumn get folderId => integer().references(BackupFolders, #id, onDelete: KeyAction.cascade)();
+  IntColumn get folderId =>
+      integer().references(BackupFolders, #id, onDelete: KeyAction.cascade)();
   TextColumn get fileName => text().withLength(min: 1, max: 255)();
   TextColumn get extension => text()();
   TextColumn get originalPath => text()();
@@ -38,7 +48,8 @@ class BackupFiles extends Table {
 
 class FileVersions extends Table {
   IntColumn get id => integer().autoIncrement()();
-  IntColumn get fileId => integer().references(BackupFiles, #id, onDelete: KeyAction.cascade)();
+  IntColumn get fileId =>
+      integer().references(BackupFiles, #id, onDelete: KeyAction.cascade)();
   IntColumn get versionNumber => integer()();
   TextColumn get backupPath => text()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
@@ -61,29 +72,42 @@ class Settings extends Table {
   BoolColumn get darkMode => boolean().withDefault(const Constant(false))();
   BoolColumn get notifications => boolean().withDefault(const Constant(true))();
   BoolColumn get verifyHash => boolean().withDefault(const Constant(true))();
-  BoolColumn get versioningEnabled => boolean().withDefault(const Constant(true))();
-  TextColumn get backupMode => text().withDefault(const Constant('incremental'))(); // full, incremental
+  BoolColumn get versioningEnabled =>
+      boolean().withDefault(const Constant(true))();
+  TextColumn get backupMode =>
+      text().withDefault(const Constant('incremental'))(); // full, incremental
   TextColumn get language => text().withDefault(const Constant('en'))();
 
   // Extra columns for seamless app integration & compatibility
-  TextColumn get defaultDestinationPath => text().withDefault(const Constant(''))();
+  TextColumn get defaultDestinationPath =>
+      text().withDefault(const Constant(''))();
   TextColumn get themeMode => text().withDefault(const Constant('system'))();
-  BoolColumn get autoBackupEnabled => boolean().withDefault(const Constant(false))();
-  TextColumn get backupInterval => text().withDefault(const Constant('manual'))();
-  BoolColumn get notifyOnSuccess => boolean().withDefault(const Constant(true))();
-  BoolColumn get notifyOnFailure => boolean().withDefault(const Constant(true))();
+  BoolColumn get autoBackupEnabled =>
+      boolean().withDefault(const Constant(false))();
+  TextColumn get backupInterval =>
+      text().withDefault(const Constant('manual'))();
+  BoolColumn get notifyOnSuccess =>
+      boolean().withDefault(const Constant(true))();
+  BoolColumn get notifyOnFailure =>
+      boolean().withDefault(const Constant(true))();
 }
 
 // Keep BackupHistory for dashboard stats and history compatibility
 class BackupHistory extends Table {
   IntColumn get id => integer().autoIncrement()();
-  IntColumn get folderId => integer().nullable().references(BackupFolders, #id, onDelete: KeyAction.cascade)();
+  IntColumn get folderId => integer().nullable().references(
+    BackupFolders,
+    #id,
+    onDelete: KeyAction.cascade,
+  )();
   DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
   TextColumn get status => text()(); // success, failed, in_progress
   TextColumn get message => text()();
   IntColumn get filesCount => integer().withDefault(const Constant(0))();
-  IntColumn get totalSize => integer().withDefault(const Constant(0))(); // in bytes
-  TextColumn get backupType => text().withDefault(const Constant('full'))(); // full, incremental
+  IntColumn get totalSize =>
+      integer().withDefault(const Constant(0))(); // in bytes
+  TextColumn get backupType =>
+      text().withDefault(const Constant('full'))(); // full, incremental
 }
 
 class SearchHistories extends Table {
@@ -108,15 +132,74 @@ class PairedDevices extends Table {
   Set<Column> get primaryKey => {deviceUuid};
 }
 
+class BackupJobs extends Table {
+  TextColumn get id => text()();
+  TextColumn get deviceUuid => text().nullable()();
+  TextColumn get folderUuid => text().nullable()();
+  IntColumn get folderId => integer()();
+  TextColumn get destinationUuid => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get startedTime => dateTime().nullable()();
+  DateTimeColumn get completedTime => dateTime().nullable()();
+  TextColumn get status => text()();
+  RealColumn get progress => real()();
+  IntColumn get totalFiles => integer().withDefault(const Constant(0))();
+  IntColumn get totalSize => integer().withDefault(const Constant(0))();
+  IntColumn get filesToBackup => integer().withDefault(const Constant(0))();
+  IntColumn get skippedFiles => integer().withDefault(const Constant(0))();
+  TextColumn get error => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class FileTransfers extends Table {
+  TextColumn get id => text()();
+  TextColumn get sessionId => text()();
+  TextColumn get fileName => text()();
+  TextColumn get relativePath => text()();
+  IntColumn get fileSize => integer()();
+  TextColumn get hash => text().nullable()();
+  TextColumn get status =>
+      text()(); // pending, transferring, completed, failed, cancelled
+  IntColumn get transferredBytes => integer()();
+  DateTimeColumn get startedAt => dateTime().nullable()();
+  DateTimeColumn get completedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(
-  tables: [BackupFolders, BackupFiles, FileVersions, BackupLogs, Settings, BackupHistory, SearchHistories, PairedDevices],
-  daos: [BackupFoldersDao, BackupFilesDao, FileVersionsDao, BackupLogsDao, SettingsDao, SearchHistoriesDao, PairedDevicesDao],
+  tables: [
+    BackupFolders,
+    BackupFiles,
+    FileVersions,
+    BackupLogs,
+    Settings,
+    BackupHistory,
+    SearchHistories,
+    PairedDevices,
+    BackupJobs,
+    FileTransfers,
+  ],
+  daos: [
+    BackupFoldersDao,
+    BackupFilesDao,
+    FileVersionsDao,
+    BackupLogsDao,
+    SettingsDao,
+    SearchHistoriesDao,
+    PairedDevicesDao,
+    BackupJobsDao,
+    FileTransfersDao,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase({QueryExecutor? executor}) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration {
@@ -125,12 +208,14 @@ class AppDatabase extends _$AppDatabase {
         await m.createAll();
       },
       onUpgrade: (Migrator m, int from, int to) async {
-        if (from < 5) {
-          // Drop all and recreate to start fresh with schema version 5
+        if (from < 7) {
+          // Drop all and recreate to start fresh with schema version 7
           for (final table in allTables) {
             await m.deleteTable(table.actualTableName);
           }
           await m.createAll();
+        } else if (from < 8) {
+          await m.createTable(fileTransfers);
         }
       },
     );
@@ -141,53 +226,69 @@ LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'backup_vault', 'backup_vault.db'));
-    
+
     // Ensure parent directory exists
     if (!await file.parent.exists()) {
       await file.parent.create(recursive: true);
     }
-    
+
     return NativeDatabase.createInBackground(file);
   });
 }
 
 @DriftAccessor(tables: [BackupFolders])
-class BackupFoldersDao extends DatabaseAccessor<AppDatabase> with _$BackupFoldersDaoMixin {
+class BackupFoldersDao extends DatabaseAccessor<AppDatabase>
+    with _$BackupFoldersDaoMixin {
   BackupFoldersDao(super.db);
 
   Future<List<BackupFolder>> getAllFolders() => select(backupFolders).get();
   Stream<List<BackupFolder>> watchAllFolders() => select(backupFolders).watch();
-  Future<BackupFolder?> getFolderById(int id) => (select(backupFolders)..where((t) => t.id.equals(id))).getSingleOrNull();
-  Future<int> insertFolder(BackupFoldersCompanion folder) => into(backupFolders).insert(folder);
-  Future<bool> updateFolder(BackupFolder folder) => update(backupFolders).replace(folder);
-  Future<int> deleteFolderById(int id) => (delete(backupFolders)..where((t) => t.id.equals(id))).go();
+  Future<BackupFolder?> getFolderById(int id) =>
+      (select(backupFolders)..where((t) => t.id.equals(id))).getSingleOrNull();
+  Future<int> insertFolder(BackupFoldersCompanion folder) =>
+      into(backupFolders).insert(folder);
+  Future<bool> updateFolder(BackupFolder folder) =>
+      update(backupFolders).replace(folder);
+  Future<int> deleteFolderById(int id) =>
+      (delete(backupFolders)..where((t) => t.id.equals(id))).go();
 }
 
 @DriftAccessor(tables: [BackupFiles])
-class BackupFilesDao extends DatabaseAccessor<AppDatabase> with _$BackupFilesDaoMixin {
+class BackupFilesDao extends DatabaseAccessor<AppDatabase>
+    with _$BackupFilesDaoMixin {
   BackupFilesDao(super.db);
 
   Future<List<BackupFile>> getAllFiles() => select(backupFiles).get();
-  Future<List<BackupFile>> getFilesByFolderId(int folderId) => (select(backupFiles)..where((t) => t.folderId.equals(folderId))).get();
-  Future<BackupFile?> getFileById(int id) => (select(backupFiles)..where((t) => t.id.equals(id))).getSingleOrNull();
-  Future<int> insertFile(BackupFilesCompanion file) => into(backupFiles).insert(file);
+  Future<List<BackupFile>> getFilesByFolderId(int folderId) =>
+      (select(backupFiles)..where((t) => t.folderId.equals(folderId))).get();
+  Future<BackupFile?> getFileById(int id) =>
+      (select(backupFiles)..where((t) => t.id.equals(id))).getSingleOrNull();
+  Future<int> insertFile(BackupFilesCompanion file) =>
+      into(backupFiles).insert(file);
   Future<bool> updateFile(BackupFile file) => update(backupFiles).replace(file);
-  Future<int> deleteFileById(int id) => (delete(backupFiles)..where((t) => t.id.equals(id))).go();
+  Future<int> deleteFileById(int id) =>
+      (delete(backupFiles)..where((t) => t.id.equals(id))).go();
 }
 
 @DriftAccessor(tables: [FileVersions])
-class FileVersionsDao extends DatabaseAccessor<AppDatabase> with _$FileVersionsDaoMixin {
+class FileVersionsDao extends DatabaseAccessor<AppDatabase>
+    with _$FileVersionsDaoMixin {
   FileVersionsDao(super.db);
 
   Future<List<FileVersion>> getAllVersions() => select(fileVersions).get();
-  Future<List<FileVersion>> getVersionsByFileId(int fileId) => (select(fileVersions)..where((t) => t.fileId.equals(fileId))).get();
-  Future<int> insertVersion(FileVersionsCompanion version) => into(fileVersions).insert(version);
-  Future<bool> updateVersion(FileVersion version) => update(fileVersions).replace(version);
-  Future<int> deleteVersionById(int id) => (delete(fileVersions)..where((t) => t.id.equals(id))).go();
+  Future<List<FileVersion>> getVersionsByFileId(int fileId) =>
+      (select(fileVersions)..where((t) => t.fileId.equals(fileId))).get();
+  Future<int> insertVersion(FileVersionsCompanion version) =>
+      into(fileVersions).insert(version);
+  Future<bool> updateVersion(FileVersion version) =>
+      update(fileVersions).replace(version);
+  Future<int> deleteVersionById(int id) =>
+      (delete(fileVersions)..where((t) => t.id.equals(id))).go();
 }
 
 @DriftAccessor(tables: [BackupLogs])
-class BackupLogsDao extends DatabaseAccessor<AppDatabase> with _$BackupLogsDaoMixin {
+class BackupLogsDao extends DatabaseAccessor<AppDatabase>
+    with _$BackupLogsDaoMixin {
   BackupLogsDao(super.db);
 
   Future<List<BackupLog>> getAllLogs({String? logType, int limit = 200}) {
@@ -199,46 +300,96 @@ class BackupLogsDao extends DatabaseAccessor<AppDatabase> with _$BackupLogsDaoMi
     }
     return query.get();
   }
-  Future<int> insertLog(BackupLogsCompanion log) => into(backupLogs).insert(log);
+
+  Future<int> insertLog(BackupLogsCompanion log) =>
+      into(backupLogs).insert(log);
   Future<int> clearAllLogs() => delete(backupLogs).go();
 }
 
 @DriftAccessor(tables: [Settings])
-class SettingsDao extends DatabaseAccessor<AppDatabase> with _$SettingsDaoMixin {
+class SettingsDao extends DatabaseAccessor<AppDatabase>
+    with _$SettingsDaoMixin {
   SettingsDao(super.db);
 
   Future<Setting?> getSettings() => select(settings).getSingleOrNull();
-  Future<int> insertSettings(SettingsCompanion settingsCompanion) => into(settings).insert(settingsCompanion);
-  Future<bool> updateSettings(Setting setting) => update(settings).replace(setting);
+  Future<int> insertSettings(SettingsCompanion settingsCompanion) =>
+      into(settings).insert(settingsCompanion);
+  Future<bool> updateSettings(Setting setting) =>
+      update(settings).replace(setting);
 }
 
 @DriftAccessor(tables: [SearchHistories])
-class SearchHistoriesDao extends DatabaseAccessor<AppDatabase> with _$SearchHistoriesDaoMixin {
+class SearchHistoriesDao extends DatabaseAccessor<AppDatabase>
+    with _$SearchHistoriesDaoMixin {
   SearchHistoriesDao(super.db);
 
   Future<List<SearchHistory>> getRecentSearchHistory({int limit = 50}) {
     return (select(searchHistories)
-      ..orderBy([
-        (t) => OrderingTerm.desc(t.pinned),
-        (t) => OrderingTerm.desc(t.createdAt),
-      ])
-      ..limit(limit))
-      .get();
+          ..orderBy([
+            (t) => OrderingTerm.desc(t.pinned),
+            (t) => OrderingTerm.desc(t.createdAt),
+          ])
+          ..limit(limit))
+        .get();
   }
 
-  Future<int> insertSearchHistory(SearchHistoriesCompanion history) => into(searchHistories).insert(history);
-  Future<bool> updateSearchHistory(SearchHistory history) => update(searchHistories).replace(history);
-  Future<int> deleteSearchHistoryById(int id) => (delete(searchHistories)..where((t) => t.id.equals(id))).go();
+  Future<int> insertSearchHistory(SearchHistoriesCompanion history) =>
+      into(searchHistories).insert(history);
+  Future<bool> updateSearchHistory(SearchHistory history) =>
+      update(searchHistories).replace(history);
+  Future<int> deleteSearchHistoryById(int id) =>
+      (delete(searchHistories)..where((t) => t.id.equals(id))).go();
   Future<int> clearSearchHistory() => delete(searchHistories).go();
 }
 
 @DriftAccessor(tables: [PairedDevices])
-class PairedDevicesDao extends DatabaseAccessor<AppDatabase> with _$PairedDevicesDaoMixin {
+class PairedDevicesDao extends DatabaseAccessor<AppDatabase>
+    with _$PairedDevicesDaoMixin {
   PairedDevicesDao(super.db);
 
   Future<List<PairedDevice>> getAllDevices() => select(pairedDevices).get();
-  Future<PairedDevice?> getDeviceByUuid(String uuid) => (select(pairedDevices)..where((t) => t.deviceUuid.equals(uuid))).getSingleOrNull();
-  Future<int> insertDevice(PairedDevicesCompanion device) => into(pairedDevices).insert(device);
-  Future<bool> updateDevice(PairedDevice device) => update(pairedDevices).replace(device);
-  Future<int> deleteDeviceByUuid(String uuid) => (delete(pairedDevices)..where((t) => t.deviceUuid.equals(uuid))).go();
+  Future<PairedDevice?> getDeviceByUuid(String uuid) => (select(
+    pairedDevices,
+  )..where((t) => t.deviceUuid.equals(uuid))).getSingleOrNull();
+  Future<int> insertDevice(PairedDevicesCompanion device) =>
+      into(pairedDevices).insert(device);
+  Future<bool> updateDevice(PairedDevice device) =>
+      update(pairedDevices).replace(device);
+  Future<int> deleteDeviceByUuid(String uuid) =>
+      (delete(pairedDevices)..where((t) => t.deviceUuid.equals(uuid))).go();
+}
+
+@DriftAccessor(tables: [BackupJobs])
+class BackupJobsDao extends DatabaseAccessor<AppDatabase>
+    with _$BackupJobsDaoMixin {
+  BackupJobsDao(super.db);
+
+  Future<List<BackupJob>> getAllJobs() => select(backupJobs).get();
+  Stream<List<BackupJob>> watchAllJobs() => select(backupJobs).watch();
+  Future<BackupJob?> getJobById(String id) =>
+      (select(backupJobs)..where((t) => t.id.equals(id))).getSingleOrNull();
+  Future<int> insertJob(BackupJobsCompanion job) =>
+      into(backupJobs).insert(job);
+  Future<bool> updateJob(BackupJob job) => update(backupJobs).replace(job);
+  Future<int> deleteJobById(String id) =>
+      (delete(backupJobs)..where((t) => t.id.equals(id))).go();
+  Future<int> clearAllJobs() => delete(backupJobs).go();
+}
+
+@DriftAccessor(tables: [FileTransfers])
+class FileTransfersDao extends DatabaseAccessor<AppDatabase>
+    with _$FileTransfersDaoMixin {
+  FileTransfersDao(super.db);
+
+  Future<List<FileTransfer>> getAllTransfers() => select(fileTransfers).get();
+  Future<FileTransfer?> getTransferById(String id) =>
+      (select(fileTransfers)..where((t) => t.id.equals(id))).getSingleOrNull();
+  Future<List<FileTransfer>> getTransfersBySession(String sessionId) => (select(
+    fileTransfers,
+  )..where((t) => t.sessionId.equals(sessionId))).get();
+  Future<int> insertTransfer(FileTransfersCompanion transfer) =>
+      into(fileTransfers).insert(transfer, mode: InsertMode.insertOrReplace);
+  Future<bool> updateTransfer(FileTransfer transfer) =>
+      update(fileTransfers).replace(transfer);
+  Future<int> clearAllTransfers() => delete(fileTransfers).go();
 }

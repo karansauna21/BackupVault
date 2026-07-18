@@ -35,6 +35,11 @@ class FolderManagerNotifier extends Notifier<AsyncValue<List<BackupFolder>>> {
     required String destinationPath,
     required String interval,
     FolderRules rules = const FolderRules(),
+    String? destinationType,
+    String? deviceUuid,
+    String? deviceName,
+    String? remoteFolderId,
+    String? remoteFolderPath,
   }) async {
     final repository = ref.read(backupFolderRepositoryProvider);
     final folderRepo = ref.read(folderManagerRepositoryProvider);
@@ -45,6 +50,11 @@ class FolderManagerNotifier extends Notifier<AsyncValue<List<BackupFolder>>> {
         sourcePath: sourcePath,
         destinationPath: destinationPath,
         backupInterval: Value(interval),
+        destinationType: Value(destinationType),
+        deviceUuid: Value(deviceUuid),
+        deviceName: Value(deviceName),
+        remoteFolderId: Value(remoteFolderId),
+        remoteFolderPath: Value(remoteFolderPath),
       );
       final newId = await repository.addFolder(companion);
       

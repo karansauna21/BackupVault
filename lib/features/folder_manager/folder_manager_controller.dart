@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:drift/drift.dart';
 import '../../core/database/app_database.dart';
 import '../../core/file_watcher/watcher_manager.dart';
 import 'folder_models.dart';
@@ -16,6 +17,11 @@ class FolderManagerController {
     required String destinationPath,
     required String interval,
     FolderRules rules = const FolderRules(),
+    String? destinationType,
+    String? deviceUuid,
+    String? deviceName,
+    String? remoteFolderId,
+    String? remoteFolderPath,
   }) async {
     final notifier = ref.read(folderManagerProvider.notifier);
     final id = await notifier.addFolder(
@@ -24,6 +30,11 @@ class FolderManagerController {
       destinationPath: destinationPath,
       interval: interval,
       rules: rules,
+      destinationType: destinationType,
+      deviceUuid: deviceUuid,
+      deviceName: deviceName,
+      remoteFolderId: remoteFolderId,
+      remoteFolderPath: remoteFolderPath,
     );
 
     // Scan immediately after adding to get stats
@@ -47,6 +58,11 @@ class FolderManagerController {
     required String destinationPath,
     required String interval,
     FolderRules? rules,
+    String? destinationType,
+    String? deviceUuid,
+    String? deviceName,
+    String? remoteFolderId,
+    String? remoteFolderPath,
   }) async {
     final notifier = ref.read(folderManagerProvider.notifier);
     final updated = folder.copyWith(
@@ -54,6 +70,11 @@ class FolderManagerController {
       sourcePath: sourcePath,
       destinationPath: destinationPath,
       backupInterval: interval,
+      destinationType: Value(destinationType),
+      deviceUuid: Value(deviceUuid),
+      deviceName: Value(deviceName),
+      remoteFolderId: Value(remoteFolderId),
+      remoteFolderPath: Value(remoteFolderPath),
     );
     await notifier.updateFolder(updated, rules: rules);
 

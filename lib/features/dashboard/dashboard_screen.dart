@@ -68,7 +68,7 @@ class DashboardScreen extends ConsumerWidget {
               : (isTablet ? 3 : 2);
           final double aspectRatio = isDesktop
               ? 2.8
-              : (isTablet ? 2.2 : 1.25);
+              : (isTablet ? 2.2 : 1.15);
 
           return SingleChildScrollView(
             padding: EdgeInsets.all(isMobile ? 16 : 24),
@@ -641,18 +641,18 @@ class DashboardScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.wifi_tethering_rounded, color: theme.colorScheme.primary, size: 24),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Automatic Network Backup Monitor',
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ],
+                Icon(Icons.wifi_tethering_rounded, color: theme.colorScheme.primary, size: 24),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Automatic Network Backup Monitor',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
@@ -755,18 +755,18 @@ class DashboardScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.cloud_queue_rounded, color: theme.colorScheme.tertiary, size: 24),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Remote Backup Monitor (Internet)',
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ],
+                Icon(Icons.cloud_queue_rounded, color: theme.colorScheme.tertiary, size: 24),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Remote Backup Monitor (Internet)',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(

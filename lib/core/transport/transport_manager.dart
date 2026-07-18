@@ -1,11 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:uuid/uuid.dart';
 import 'package:path/path.dart' as p;
+import 'package:drift/drift.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../features/settings/settings_database.dart';
 import '../models/device_model.dart';
 import '../repositories/device_repository.dart';
 import '../services/logging_service.dart';
+import '../database/app_database.dart';
 import 'bandwidth_manager.dart';
 import 'connection_service.dart';
 import 'heartbeat_service.dart';
@@ -20,6 +24,7 @@ class TransportManager {
   final SettingsDatabase _db;
   final DeviceRepository _deviceRepository;
   final LoggingService _logger;
+  final AppDatabase _appDb;
 
   late final TransportRepository _transportRepository;
   late final BandwidthManager _bandwidthManager;
@@ -30,10 +35,11 @@ class TransportManager {
   final Map<String, HeartbeatService> _activeHeartbeats = {};
   final Map<String, ReconnectService> _reconnectServices = {};
   final Map<String, TransferSession> _activeTransfers = {};
+  final Map<String, Completer<TransportPacket>> _pendingResponses = {};
 
   final StreamController<TransportEvent> _eventController = StreamController<TransportEvent>.broadcast();
 
-  TransportManager(this._db, this._deviceRepository, this._logger) {
+  TransportManager(this._db, this._deviceRepository, this._logger, this._appDb) {
     _transportRepository = TransportRepository(_db);
     _bandwidthManager = BandwidthManager();
     _packetManager = PacketManager();
@@ -122,8 +128,7 @@ class TransportManager {
         },
         onDisconnected: () {
           _logger.info('TransportManager', 'Client channel to ${device.ipAddress} disconnected.');
-          _activeChannels.removeWhere((id, c) => c == channel);
-          _activeHeartbeats.remove(device.id)?.stop();
+          _handleDisconnect(device.id, device.ipAddress, targetPort);
         },
         onPacketReceived: (packet) {
           routePacket(device.id, packet);
@@ -189,6 +194,10 @@ class TransportManager {
 
   bool isDeviceConnected(String deviceId) {
     return _activeChannels.containsKey(deviceId);
+  }
+
+  SecureChannel? getChannel(String deviceId) {
+    return _activeChannels[deviceId];
   }
 
   Future<void> disconnectFromDevice(String deviceId) async {
@@ -300,18 +309,302 @@ class TransportManager {
     channel.socket.done.then((_) => _handleDisconnect(deviceId, ip, port));
   }
 
+  final Map<String, void Function(TransportPacket)> _packetListeners = {};
+
+  void registerPacketListener(String sessionId, void Function(TransportPacket) listener) {
+    _packetListeners[sessionId] = listener;
+  }
+
+  void unregisterPacketListener(String sessionId) {
+    _packetListeners.remove(sessionId);
+  }
+
   void routePacket(String deviceId, TransportPacket packet) {
+    final listener = _packetListeners[packet.sessionId];
+    if (listener != null) {
+      listener(packet);
+      return;
+    }
+
     final hb = _activeHeartbeats[deviceId];
     if (packet.type == PacketType.heartbeat && hb != null) {
       hb.handleHeartbeat(packet);
     } else if (packet.type == PacketType.heartbeatAck && hb != null) {
       hb.handleHeartbeatAck();
+    } else if (packet.type == PacketType.remoteFoldersRequest ||
+               packet.type == PacketType.remoteFoldersResponse ||
+               packet.type == PacketType.createFolderRequest ||
+               packet.type == PacketType.createFolderResponse ||
+               packet.type == PacketType.renameFolderRequest ||
+               packet.type == PacketType.renameFolderResponse ||
+               packet.type == PacketType.syncDestinationMetadata) {
+      _handleCustomProtocolPacket(deviceId, packet);
     } else {
       final transfer = _activeTransfers[packet.sessionId];
       if (transfer != null) {
         transfer.handlePacket(packet);
       }
     }
+  }
+
+  Future<void> _handleCustomProtocolPacket(String deviceId, TransportPacket packet) async {
+    final channel = _activeChannels[deviceId];
+    if (channel == null) return;
+
+    try {
+      final jsonStr = utf8.decode(packet.payload);
+      final data = json.decode(jsonStr) as Map<String, dynamic>;
+
+      if (packet.type == PacketType.remoteFoldersRequest) {
+        final path = data['path'] as String?;
+        try {
+          if (path == null || path.isEmpty) {
+            final roots = await getRoots();
+            final resp = {
+              'success': true,
+              'roots': roots,
+            };
+            await channel.sendSecurePacket(
+              PacketType.remoteFoldersResponse,
+              Uint8List.fromList(utf8.encode(json.encode(resp))),
+              sessionId: packet.sessionId,
+            );
+          } else {
+            final folders = await listDirectories(path);
+            final resp = {
+              'success': true,
+              'folders': folders,
+            };
+            await channel.sendSecurePacket(
+              PacketType.remoteFoldersResponse,
+              Uint8List.fromList(utf8.encode(json.encode(resp))),
+              sessionId: packet.sessionId,
+            );
+          }
+        } catch (e) {
+          final resp = {
+            'success': false,
+            'error': e.toString(),
+          };
+          await channel.sendSecurePacket(
+            PacketType.remoteFoldersResponse,
+            Uint8List.fromList(utf8.encode(json.encode(resp))),
+            sessionId: packet.sessionId,
+          );
+        }
+      } else if (packet.type == PacketType.createFolderRequest) {
+        final parentPath = data['parentPath'] as String;
+        final folderName = data['folderName'] as String;
+        try {
+          final newDir = Directory(p.join(parentPath, folderName));
+          await newDir.create(recursive: true);
+          final resp = {
+            'success': true,
+            'folderPath': newDir.path,
+          };
+          
+          await _logger.info('DestinationSelector', 'Remote Folder Created: ${newDir.path} by device $deviceId');
+          
+          await channel.sendSecurePacket(
+            PacketType.createFolderResponse,
+            Uint8List.fromList(utf8.encode(json.encode(resp))),
+            sessionId: packet.sessionId,
+          );
+        } catch (e) {
+          final resp = {
+            'success': false,
+            'error': e.toString(),
+          };
+          await channel.sendSecurePacket(
+            PacketType.createFolderResponse,
+            Uint8List.fromList(utf8.encode(json.encode(resp))),
+            sessionId: packet.sessionId,
+          );
+        }
+      } else if (packet.type == PacketType.renameFolderRequest) {
+        final folderPath = data['folderPath'] as String;
+        final newName = data['newName'] as String;
+        try {
+          final dir = Directory(folderPath);
+          final parent = dir.parent.path;
+          final targetDir = Directory(p.join(parent, newName));
+          await dir.rename(targetDir.path);
+          final resp = {
+            'success': true,
+            'folderPath': targetDir.path,
+          };
+          await channel.sendSecurePacket(
+            PacketType.renameFolderResponse,
+            Uint8List.fromList(utf8.encode(json.encode(resp))),
+            sessionId: packet.sessionId,
+          );
+        } catch (e) {
+          final resp = {
+            'success': false,
+            'error': e.toString(),
+          };
+          await channel.sendSecurePacket(
+            PacketType.renameFolderResponse,
+            Uint8List.fromList(utf8.encode(json.encode(resp))),
+            sessionId: packet.sessionId,
+          );
+        }
+      } else if (packet.type == PacketType.syncDestinationMetadata) {
+        await _handleSyncDestinationMetadata(data);
+      } else {
+        _handleResponsePacket(packet.sessionId, packet);
+      }
+    } catch (e, stack) {
+      await _logger.error('TransportManager', 'Error handling custom protocol packet: $e', stack.toString());
+    }
+  }
+
+  void _handleResponsePacket(String sessionId, TransportPacket packet) {
+    final completer = _pendingResponses.remove(sessionId);
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(packet);
+    }
+  }
+
+  Future<void> _handleSyncDestinationMetadata(Map<String, dynamic> data) async {
+    try {
+      final folderName = data['name'] as String;
+      final sourcePath = data['sourcePath'] as String;
+      final destinationPath = data['destinationPath'] as String;
+      final destinationType = data['destinationType'] as String?;
+      final deviceUuid = data['deviceUuid'] as String?;
+      final deviceName = data['deviceName'] as String?;
+      final remoteFolderId = data['remoteFolderId'] as String?;
+      final remoteFolderPath = data['remoteFolderPath'] as String?;
+      final lastVerifiedStr = data['lastVerified'] as String?;
+      final lastVerified = lastVerifiedStr != null ? DateTime.tryParse(lastVerifiedStr) : null;
+      
+      final existingFolders = await _appDb.backupFoldersDao.getAllFolders();
+      BackupFolder? existing;
+      for (final f in existingFolders) {
+        if (f.deviceUuid == deviceUuid && f.remoteFolderPath == remoteFolderPath) {
+          existing = f;
+          break;
+        }
+      }
+
+      if (existing != null) {
+        final updated = existing.copyWith(
+          name: folderName,
+          sourcePath: sourcePath,
+          destinationPath: destinationPath,
+          destinationType: Value(destinationType),
+          deviceUuid: Value(deviceUuid),
+          deviceName: Value(deviceName),
+          remoteFolderId: Value(remoteFolderId),
+          remoteFolderPath: Value(remoteFolderPath),
+          lastVerified: Value(lastVerified),
+        );
+        await _appDb.backupFoldersDao.updateFolder(updated);
+        await _logger.info('RemoteSync', 'Destination Sync: Updated existing remote folder "$folderName"');
+      } else {
+        final companion = BackupFoldersCompanion.insert(
+          name: folderName,
+          sourcePath: sourcePath,
+          destinationPath: destinationPath,
+          enabled: const Value(true),
+          destinationType: Value(destinationType),
+          deviceUuid: Value(deviceUuid),
+          deviceName: Value(deviceName),
+          remoteFolderId: Value(remoteFolderId),
+          remoteFolderPath: Value(remoteFolderPath),
+          lastVerified: Value(lastVerified),
+        );
+        await _appDb.backupFoldersDao.insertFolder(companion);
+        await _logger.info('RemoteSync', 'Destination Sync: Inserted new remote folder "$folderName"');
+      }
+    } catch (e, stack) {
+      await _logger.error('RemoteSync', 'Failed to handle sync destination metadata: $e', stack.toString());
+    }
+  }
+
+  Future<Map<String, dynamic>> sendRequestAndWait(String deviceId, PacketType requestType, Map<String, dynamic> payload, PacketType expectedResponseType) async {
+    final channel = _activeChannels[deviceId];
+    if (channel == null) {
+      throw Exception('Device is offline or not connected.');
+    }
+
+    final sessionId = const Uuid().v4();
+    final completer = Completer<TransportPacket>();
+    _pendingResponses[sessionId] = completer;
+
+    try {
+      final payloadBytes = Uint8List.fromList(utf8.encode(json.encode(payload)));
+      await channel.sendSecurePacket(requestType, payloadBytes, sessionId: sessionId);
+
+      final responsePacket = await completer.future.timeout(const Duration(seconds: 15));
+      if (responsePacket.type != expectedResponseType) {
+        throw Exception('Received unexpected response type: ${responsePacket.type}');
+      }
+
+      final responseJsonStr = utf8.decode(responsePacket.payload);
+      return json.decode(responseJsonStr) as Map<String, dynamic>;
+    } catch (e) {
+      _pendingResponses.remove(sessionId);
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, String>>> getRoots() async {
+    List<Map<String, String>> roots = [];
+    if (Platform.isWindows) {
+      for (var charCode = 65; charCode <= 90; charCode++) {
+        final driveLetter = String.fromCharCode(charCode);
+        final drivePath = '$driveLetter:\\';
+        try {
+          if (Directory(drivePath).existsSync()) {
+            roots.add({
+              'name': '$driveLetter: Drive',
+              'path': drivePath,
+            });
+          }
+        } catch (_) {}
+      }
+    } else if (Platform.isAndroid) {
+      roots.add({
+        'name': 'Internal Storage',
+        'path': '/storage/emulated/0',
+      });
+      try {
+        final appDocs = await getApplicationDocumentsDirectory();
+        roots.add({
+          'name': 'App Documents',
+          'path': appDocs.path,
+        });
+      } catch (_) {}
+    } else {
+      roots.add({
+        'name': 'Root',
+        'path': '/',
+      });
+    }
+    return roots;
+  }
+
+  Future<List<Map<String, String>>> listDirectories(String path) async {
+    final dir = Directory(path);
+    if (!await dir.exists()) {
+      throw Exception('Directory does not exist');
+    }
+    final List<Map<String, String>> items = [];
+    await for (final entity in dir.list(followLinks: false)) {
+      if (entity is Directory) {
+        final name = p.basename(entity.path);
+        if (!name.startsWith('.')) {
+          items.add({
+            'name': name,
+            'path': entity.path,
+          });
+        }
+      }
+    }
+    items.sort((a, b) => a['name']!.toLowerCase().compareTo(b['name']!.toLowerCase()));
+    return items;
   }
 
   void _handleDisconnect(String deviceId, String ip, int port) async {

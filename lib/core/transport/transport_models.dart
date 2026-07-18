@@ -307,7 +307,14 @@ enum PacketType {
   fileAck,
   fileNack,
   sessionEnd,
-  disconnectNotice
+  disconnectNotice,
+  remoteFoldersRequest,
+  remoteFoldersResponse,
+  createFolderRequest,
+  createFolderResponse,
+  renameFolderRequest,
+  renameFolderResponse,
+  syncDestinationMetadata
 }
 
 class TransportPacket {

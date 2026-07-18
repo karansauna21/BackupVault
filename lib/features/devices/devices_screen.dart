@@ -1,4 +1,4 @@
-import 'dart:async';
+is import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -169,53 +169,105 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                   children: [
                     _buildLocalIdentityCard(context, theme, identity),
                     const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'My Paired Devices',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.3,
+                    isMobile
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'My Paired Devices',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => const QrScannerScreen()),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                                      label: const Text('Scan QR'),
+                                      style: ElevatedButton.styleFrom(
+                                        elevation: 0,
+                                        padding: const EdgeInsets.symmetric(vertical: 12),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () => _showPairDeviceDialog(context),
+                                      icon: const Icon(Icons.add_link_rounded, size: 18),
+                                      label: const Text('Pair Device'),
+                                      style: ElevatedButton.styleFrom(
+                                        elevation: 0,
+                                        padding: const EdgeInsets.symmetric(vertical: 12),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'My Paired Devices',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (context) => const QrScannerScreen()),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                                    label: const Text('Scan QR'),
+                                    style: ElevatedButton.styleFrom(
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ElevatedButton.icon(
+                                    onPressed: () => _showPairDeviceDialog(context),
+                                    icon: const Icon(Icons.add_link_rounded, size: 18),
+                                    label: const Text('Pair Device'),
+                                    style: ElevatedButton.styleFrom(
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            ],
                           ),
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => const QrScannerScreen()),
-                                );
-                              },
-                              icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
-                              label: const Text('Scan QR'),
-                              style: ElevatedButton.styleFrom(
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton.icon(
-                              onPressed: () => _showPairDeviceDialog(context),
-                              icon: const Icon(Icons.add_link_rounded, size: 18),
-                              label: const Text('Pair Device'),
-                              style: ElevatedButton.styleFrom(
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                      ],
-                    ),
                     const SizedBox(height: 16),
                     pairedAsync.when(
                       loading: () => const Center(
@@ -403,6 +455,151 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
   }
 
   Widget _buildManualEntryCard(BuildContext context, ThemeData theme, DiscoveryManager discoveryManager) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
+    void onPairPressed() async {
+      final ip = _ipController.text.trim();
+      final code = _pairCodeController.text.trim();
+      final portVal = int.tryParse(_portController.text.trim()) ?? 8321;
+      if (ip.isNotEmpty && code.isNotEmpty) {
+        BuildContext? dialogContext;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) {
+            dialogContext = ctx;
+            return const PopScope(
+              canPop: false,
+              child: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
+          },
+        );
+        
+        bool success = false;
+        try {
+          final pairing = ref.read(devicePairingServiceProvider);
+          success = await pairing.initiatePairing(ip, code, port: portVal);
+        } catch (_) {
+          success = false;
+        } finally {
+          if (dialogContext != null && dialogContext!.mounted) {
+            Navigator.pop(dialogContext!); // Close progress dialog
+          }
+        }
+        
+        if (context.mounted) {
+          if (success) {
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Row(
+                  children: [
+                    Icon(Icons.check_circle_rounded, color: Colors.green),
+                    SizedBox(width: 8),
+                    Text('Pairing Success'),
+                  ],
+                ),
+                content: const Text('Your device has been successfully paired and trusted!'),
+                actions: [
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          } else {
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Row(
+                  children: [
+                    Icon(Icons.error_rounded, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Pairing Failed'),
+                  ],
+                ),
+                content: const Text('Could not pair with the device. Please verify the IP, Port, and Pairing Code.'),
+                actions: [
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
+          }
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter IP, Port, and 6-digit Pairing Code'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+
+    void onConnectPressed() async {
+      final ip = _ipController.text.trim();
+      final port = int.tryParse(_portController.text.trim()) ?? 8321;
+      if (ip.isNotEmpty) {
+        BuildContext? dialogContext;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) {
+            dialogContext = ctx;
+            return const PopScope(
+              canPop: false,
+              child: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
+          },
+        );
+
+        String? errorMessage;
+        try {
+          final devManager = ref.read(deviceManagerProvider);
+          await devManager.connectManualIP(ip, port);
+        } catch (e) {
+          errorMessage = e.toString();
+        } finally {
+          if (dialogContext != null && dialogContext!.mounted) {
+            Navigator.pop(dialogContext!);
+          }
+        }
+
+        if (context.mounted) {
+          if (errorMessage == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Connected to device at $ip:$port successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Connection Failed: $errorMessage'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter a valid IP address'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow,
@@ -451,177 +648,75 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _pairCodeController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Pairing Code (6-digit)',
-                    border: OutlineInputBorder(),
-                    isDense: true,
+          if (isMobile) ...[
+            TextField(
+              controller: _pairCodeController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Pairing Code (6-digit)',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.link_rounded),
+                    onPressed: onPairPressed,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    label: const Text('Pair'),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.link_rounded),
-                onPressed: () async {
-                  final ip = _ipController.text.trim();
-                  final code = _pairCodeController.text.trim();
-                  final portVal = int.tryParse(_portController.text.trim()) ?? 8321;
-                  if (ip.isNotEmpty && code.isNotEmpty) {
-                    BuildContext? dialogContext;
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (ctx) {
-                        dialogContext = ctx;
-                        return const PopScope(
-                          canPop: false,
-                          child: Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                        );
-                      },
-                    );
-                    
-                    bool success = false;
-                    try {
-                      final pairing = ref.read(devicePairingServiceProvider);
-                      success = await pairing.initiatePairing(ip, code, port: portVal);
-                    } catch (_) {
-                      success = false;
-                    } finally {
-                      if (dialogContext != null && dialogContext!.mounted) {
-                        Navigator.pop(dialogContext!); // Close progress dialog
-                      }
-                    }
-                    
-                    if (context.mounted) {
-                      if (success) {
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Row(
-                              children: [
-                                Icon(Icons.check_circle_rounded, color: Colors.green),
-                                SizedBox(width: 8),
-                                Text('Pairing Success'),
-                              ],
-                            ),
-                            content: const Text('Your device has been successfully paired and trusted!'),
-                            actions: [
-                              ElevatedButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('OK'),
-                              ),
-                            ],
-                          ),
-                        );
-                      } else {
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Row(
-                              children: [
-                                Icon(Icons.error_rounded, color: Colors.red),
-                                SizedBox(width: 8),
-                                Text('Pairing Failed'),
-                              ],
-                            ),
-                            content: const Text('Could not pair with the device. Please verify the IP, Port, and Pairing Code.'),
-                            actions: [
-                              ElevatedButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('Retry'),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                    }
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please enter IP, Port, and 6-digit Pairing Code'),
-                        backgroundColor: Colors.orange,
-                      ),
-                    );
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: onConnectPressed,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('Connect'),
+                  ),
                 ),
-                label: const Text('Pair'),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: () async {
-                  final ip = _ipController.text.trim();
-                  final port = int.tryParse(_portController.text.trim()) ?? 8321;
-                  if (ip.isNotEmpty) {
-                    BuildContext? dialogContext;
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (ctx) {
-                        dialogContext = ctx;
-                        return const PopScope(
-                          canPop: false,
-                          child: Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                        );
-                      },
-                    );
-
-                    String? errorMessage;
-                    try {
-                      final devManager = ref.read(deviceManagerProvider);
-                      await devManager.connectManualIP(ip, port);
-                    } catch (e) {
-                      errorMessage = e.toString();
-                    } finally {
-                      if (dialogContext != null && dialogContext!.mounted) {
-                        Navigator.pop(dialogContext!);
-                      }
-                    }
-
-                    if (context.mounted) {
-                      if (errorMessage == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Connected to device at $ip:$port successfully!'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Connection Failed: $errorMessage'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please enter a valid IP address'),
-                        backgroundColor: Colors.orange,
-                      ),
-                    );
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              ],
+            ),
+          ] else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _pairCodeController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Pairing Code (6-digit)',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
                 ),
-                child: const Text('Connect'),
-              ),
-            ],
-          ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.link_rounded),
+                  onPressed: onPairPressed,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  ),
+                  label: const Text('Pair'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: onConnectPressed,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  ),
+                  child: const Text('Connect'),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -676,6 +771,246 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
         ? Icons.phone_android_rounded
         : Icons.laptop_windows_rounded;
     final manager = ref.read(deviceManagerProvider);
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
+    // Status avatar widget
+    final avatarWidget = Stack(
+      alignment: Alignment.bottomRight,
+      children: [
+        CircleAvatar(
+          radius: 24,
+          backgroundColor: theme.colorScheme.surfaceContainerHigh,
+          child: Icon(platformIcon, color: theme.colorScheme.primary),
+        ),
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: isOnline ? Colors.green : Colors.grey,
+            shape: BoxShape.circle,
+            border: Border.all(color: theme.colorScheme.surface, width: 2),
+          ),
+        ),
+      ],
+    );
+
+    // Middle info widget
+    final middleInfoWidget = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          dev.device.name,
+          style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '${dev.device.platform} • ${dev.device.ipAddress}:${dev.device.port} • ${dev.connectionType}',
+          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          children: [
+            _buildOnlineOfflineBadge(theme, isOnline),
+            _buildStatusBadge(theme, dev.device.trustStatus),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _buildQualityBadge(theme, dev.connectionQuality),
+            if (dev.latencyMs != null)
+              Text(
+                'Latency: ${dev.latencyMs}ms',
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+          ],
+        ),
+      ],
+    );
+
+    // Action buttons widgets
+    final List<Widget> actionButtons = [
+      if (dev.device.trustStatus != 'Trusted')
+        ElevatedButton.icon(
+          key: Key('pair_btn_${dev.device.id}'),
+          icon: const Icon(Icons.link_rounded, size: 16),
+          label: const Text('Pair'),
+          onPressed: () async {
+            final codeController = TextEditingController();
+            final enteredCode = await showDialog<String>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: Text('Pair with ${dev.device.name}'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Please enter the 6-digit Pair Code displayed on ${dev.device.name}.'),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: codeController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Pair Code',
+                        hintText: 'e.g., 123456',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, codeController.text.trim()),
+                    child: const Text('Pair'),
+                  ),
+                ],
+              ),
+            );
+
+            if (enteredCode == null || enteredCode.isEmpty) return;
+            if (!context.mounted) return;
+
+            BuildContext? dialogContext;
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (ctx) {
+                dialogContext = ctx;
+                return const PopScope(
+                  canPop: false,
+                  child: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              },
+            );
+
+            bool success = false;
+            ref.read(loggingServiceProvider).info('DiscoveryService', 'Connection Requested');
+            try {
+              success = await ref.read(devicePairingServiceProvider).initiatePairing(
+                dev.device.ipAddress,
+                enteredCode,
+                port: dev.device.port,
+              );
+            } catch (_) {
+              success = false;
+            } finally {
+              if (dialogContext != null && dialogContext!.mounted) {
+                Navigator.pop(dialogContext!);
+              }
+            }
+
+            if (success) {
+              ref.read(loggingServiceProvider).info('DiscoveryService', 'Connection Success');
+            } else {
+              ref.read(loggingServiceProvider).warning('DiscoveryService', 'Connection Failed');
+            }
+
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(success 
+                      ? 'Device paired successfully!' 
+                      : 'Pairing failed. Make sure the other device is online and the Pair Code is correct.'),
+                  backgroundColor: success ? Colors.green : Colors.red,
+                ),
+              );
+            }
+            await discoveryManager.refresh();
+          },
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            visualDensity: VisualDensity.compact,
+            backgroundColor: theme.colorScheme.primaryContainer,
+            foregroundColor: theme.colorScheme.onPrimaryContainer,
+          ),
+        )
+      else ...[
+        ElevatedButton.icon(
+          key: Key('connect_btn_${dev.device.id}'),
+          icon: Icon(isOnline ? Icons.link_off_rounded : Icons.link_rounded, size: 16),
+          label: Text(isOnline ? 'Disconnect' : 'Connect'),
+          onPressed: () async {
+            if (isOnline) {
+              await discoveryManager.disconnectDevice(dev.device.id);
+            } else {
+              await discoveryManager.connectDevice(dev.device.id);
+            }
+            await discoveryManager.refresh();
+          },
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            visualDensity: VisualDensity.compact,
+            backgroundColor: isOnline ? theme.colorScheme.errorContainer : theme.colorScheme.primaryContainer,
+            foregroundColor: isOnline ? theme.colorScheme.onErrorContainer : theme.colorScheme.onPrimaryContainer,
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          key: Key('remove_btn_${dev.device.id}'),
+          icon: const Icon(Icons.delete_rounded, color: Colors.redAccent, size: 20),
+          tooltip: 'Remove Device',
+          onPressed: () async {
+            final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Remove Device'),
+                content: Text('Are you sure you want to untrust and remove "${dev.device.name}"?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    child: const Text('Remove', style: TextStyle(color: Colors.white)),
+                  ),
+                ],
+              ),
+            );
+
+            if (confirmed == true) {
+              await manager.removeDevice(dev.device.id);
+              await discoveryManager.refresh();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Device removed successfully.')),
+                );
+              }
+            }
+          },
+        ),
+      ],
+      const SizedBox(width: 4),
+      IconButton(
+        icon: const Icon(Icons.bolt_rounded, size: 20),
+        tooltip: 'Ping Device',
+        onPressed: () async {
+          final ok = await discoveryManager.pingDevice(dev.device.id);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(ok ? 'Ping response received!' : 'Device ping timed out!'),
+                backgroundColor: ok ? Colors.green : Colors.red,
+              ),
+            );
+          }
+        },
+      ),
+    ];
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -688,257 +1023,39 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            // Status avatar
-            Stack(
-              alignment: Alignment.bottomRight,
-              children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: theme.colorScheme.surfaceContainerHigh,
-                  child: Icon(platformIcon, color: theme.colorScheme.primary),
-                ),
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: isOnline ? Colors.green : Colors.grey,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: theme.colorScheme.surface, width: 2),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 16),
-
-            // Middle info
-            Expanded(
-              child: Column(
+        child: isMobile
+            ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    dev.device.name,
-                    style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 2),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '${dev.device.platform} • ${dev.device.ipAddress}:${dev.device.port} • ${dev.connectionType}',
-                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                      ),
+                      avatarWidget,
+                      const SizedBox(width: 16),
+                      Expanded(child: middleInfoWidget),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 12),
+                  const Divider(height: 1),
+                  const SizedBox(height: 8),
                   Row(
-                    children: [
-                      _buildOnlineOfflineBadge(theme, isOnline),
-                      const SizedBox(width: 6),
-                      _buildStatusBadge(theme, dev.device.trustStatus),
-                    ],
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: actionButtons,
                   ),
-                  const SizedBox(height: 6),
+                ],
+              )
+            : Row(
+                children: [
+                  avatarWidget,
+                  const SizedBox(width: 16),
+                  Expanded(child: middleInfoWidget),
+                  const SizedBox(width: 16),
                   Row(
-                    children: [
-                      _buildQualityBadge(theme, dev.connectionQuality),
-                      const SizedBox(width: 8),
-                      if (dev.latencyMs != null)
-                        Text(
-                          'Latency: ${dev.latencyMs}ms',
-                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                        ),
-                    ],
+                    mainAxisSize: MainAxisSize.min,
+                    children: actionButtons,
                   ),
                 ],
               ),
-            ),
-
-            // Action Buttons
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (dev.device.trustStatus != 'Trusted')
-                      ElevatedButton.icon(
-                        key: Key('pair_btn_${dev.device.id}'),
-                        icon: const Icon(Icons.link_rounded, size: 16),
-                        label: const Text('Pair'),
-                        onPressed: () async {
-                          final codeController = TextEditingController();
-                          final enteredCode = await showDialog<String>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: Text('Pair with ${dev.device.name}'),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text('Please enter the 6-digit Pair Code displayed on ${dev.device.name}.'),
-                                  const SizedBox(height: 16),
-                                  TextField(
-                                    controller: codeController,
-                                    keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Pair Code',
-                                      hintText: 'e.g., 123456',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('Cancel'),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () => Navigator.pop(context, codeController.text.trim()),
-                                  child: const Text('Pair'),
-                                ),
-                              ],
-                            ),
-                          );
-
-                          if (enteredCode == null || enteredCode.isEmpty) return;
-                          if (!context.mounted) return;
-
-                          BuildContext? dialogContext;
-                          showDialog(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (ctx) {
-                              dialogContext = ctx;
-                              return const PopScope(
-                                canPop: false,
-                                child: Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              );
-                            },
-                          );
-
-                          bool success = false;
-                          ref.read(loggingServiceProvider).info('DiscoveryService', 'Connection Requested');
-                          try {
-                            success = await ref.read(devicePairingServiceProvider).initiatePairing(
-                              dev.device.ipAddress,
-                              enteredCode,
-                              port: dev.device.port,
-                            );
-                          } catch (_) {
-                            success = false;
-                          } finally {
-                            if (dialogContext != null && dialogContext!.mounted) {
-                              Navigator.pop(dialogContext!);
-                            }
-                          }
-
-                          if (success) {
-                            ref.read(loggingServiceProvider).info('DiscoveryService', 'Connection Success');
-                          } else {
-                            ref.read(loggingServiceProvider).warning('DiscoveryService', 'Connection Failed');
-                          }
-
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(success 
-                                    ? 'Device paired successfully!' 
-                                    : 'Pairing failed. Make sure the other device is online and the Pair Code is correct.'),
-                                backgroundColor: success ? Colors.green : Colors.red,
-                              ),
-                            );
-                          }
-                          await discoveryManager.refresh();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          visualDensity: VisualDensity.compact,
-                          backgroundColor: theme.colorScheme.primaryContainer,
-                          foregroundColor: theme.colorScheme.onPrimaryContainer,
-                        ),
-                      )
-                    else ...[
-                      ElevatedButton.icon(
-                        key: Key('connect_btn_${dev.device.id}'),
-                        icon: Icon(isOnline ? Icons.link_off_rounded : Icons.link_rounded, size: 16),
-                        label: Text(isOnline ? 'Disconnect' : 'Connect'),
-                        onPressed: () async {
-                          if (isOnline) {
-                            await discoveryManager.disconnectDevice(dev.device.id);
-                          } else {
-                            await discoveryManager.connectDevice(dev.device.id);
-                          }
-                          await discoveryManager.refresh();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          visualDensity: VisualDensity.compact,
-                          backgroundColor: isOnline ? theme.colorScheme.errorContainer : theme.colorScheme.primaryContainer,
-                          foregroundColor: isOnline ? theme.colorScheme.onErrorContainer : theme.colorScheme.onPrimaryContainer,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        key: Key('remove_btn_${dev.device.id}'),
-                        icon: const Icon(Icons.delete_rounded, color: Colors.redAccent, size: 20),
-                        tooltip: 'Remove Device',
-                        onPressed: () async {
-                          final confirmed = await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Remove Device'),
-                              content: Text('Are you sure you want to untrust and remove "${dev.device.name}"?'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
-                                  child: const Text('Cancel'),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                                  child: const Text('Remove', style: TextStyle(color: Colors.white)),
-                                ),
-                              ],
-                            ),
-                          );
-
-                          if (confirmed == true) {
-                            await manager.removeDevice(dev.device.id);
-                            await discoveryManager.refresh();
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Device removed successfully.')),
-                              );
-                            }
-                          }
-                        },
-                      ),
-                    ],
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: const Icon(Icons.bolt_rounded, size: 20),
-                      tooltip: 'Ping Device',
-                      onPressed: () async {
-                        final ok = await discoveryManager.pingDevice(dev.device.id);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(ok ? 'Ping response received!' : 'Device ping timed out!'),
-                              backgroundColor: ok ? Colors.green : Colors.red,
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

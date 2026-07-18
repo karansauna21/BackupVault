@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'backup_engine.dart';
 import '../restore/restore_engine.dart';
@@ -67,6 +69,15 @@ class BackgroundService {
 
     await _logger.info('BackgroundService', 'Starting BackupVault Background Services...');
 
+    if (Platform.isAndroid) {
+      try {
+        await const MethodChannel('com.backupvault.backup_vault/foreground_service')
+            .invokeMethod('startService', {'message': 'Auto backup active'});
+      } catch (e) {
+        await _logger.error('BackgroundService', 'Failed to start Android Foreground Service: $e');
+      }
+    }
+
     // Load persisted state
     _startupState = await _repository.loadStartupState();
     _windowState = await _repository.loadWindowState();
@@ -101,6 +112,15 @@ class BackgroundService {
   Future<void> stop() async {
     _monitorTimer?.cancel();
     _monitorTimer = null;
+
+    if (Platform.isAndroid) {
+      try {
+        await const MethodChannel('com.backupvault.backup_vault/foreground_service')
+            .invokeMethod('stopService');
+      } catch (e) {
+        await _logger.error('BackgroundService', 'Failed to stop Android Foreground Service: $e');
+      }
+    }
 
     // Save final state
     await _repository.saveWindowState(_windowState);

@@ -8,6 +8,10 @@ import 'folder_models.dart';
 import 'folder_manager_controller.dart';
 import '../../core/utils/android_storage.dart';
 import '../../shared/providers/platform_providers.dart';
+import '../../shared/providers/device_provider.dart';
+import '../../core/transport/transport_provider.dart';
+import '../../core/transport/transport_models.dart';
+import '../../core/models/device_model.dart';
 
 // Helper formatting utilities
 String formatFolderBytes(int bytes) {
@@ -582,6 +586,11 @@ class _FolderConfigDialogState extends ConsumerState<FolderConfigDialog> {
   final _destController = TextEditingController();
   String _interval = 'manual';
   FolderRules _rules = const FolderRules();
+  String? _destinationType;
+  String? _deviceUuid;
+  String? _deviceName;
+  String? _remoteFolderId;
+  String? _remoteFolderPath;
 
   @override
   void initState() {
@@ -591,6 +600,11 @@ class _FolderConfigDialogState extends ConsumerState<FolderConfigDialog> {
       _sourceController.text = widget.existingFolder!.sourcePath;
       _destController.text = widget.existingFolder!.destinationPath;
       _interval = widget.existingFolder!.backupInterval;
+      _destinationType = widget.existingFolder!.destinationType;
+      _deviceUuid = widget.existingFolder!.deviceUuid;
+      _deviceName = widget.existingFolder!.deviceName;
+      _remoteFolderId = widget.existingFolder!.remoteFolderId;
+      _remoteFolderPath = widget.existingFolder!.remoteFolderPath;
     }
     if (widget.initialRules != null) {
       _rules = widget.initialRules!;
@@ -701,11 +715,18 @@ class _FolderConfigDialogState extends ConsumerState<FolderConfigDialog> {
                     icon: const Icon(Icons.drive_file_move_rounded),
                     tooltip: 'Browse Destination',
                     onPressed: () async {
-                      final picker = ref.read(folderPickerProvider);
-                      final path = await picker.pickFolder(context);
-                      if (path != null) {
+                      final result = await showDialog<Map<String, dynamic>>(
+                        context: context,
+                        builder: (context) => const SelectBackupDestinationDialog(),
+                      );
+                      if (result != null && mounted) {
                         setState(() {
-                          _destController.text = path;
+                          _destController.text = result['destinationPath'] ?? '';
+                          _destinationType = result['destinationType'];
+                          _deviceUuid = result['deviceUuid'];
+                          _deviceName = result['deviceName'];
+                          _remoteFolderId = result['remoteFolderId'];
+                          _remoteFolderPath = result['remoteFolderPath'];
                         });
                       }
                     },
@@ -775,6 +796,11 @@ class _FolderConfigDialogState extends ConsumerState<FolderConfigDialog> {
               'destinationPath': _destController.text.trim(),
               'interval': _interval,
               'rules': _rules,
+              'destinationType': _destinationType,
+              'deviceUuid': _deviceUuid,
+              'deviceName': _deviceName,
+              'remoteFolderId': _remoteFolderId,
+              'remoteFolderPath': _remoteFolderPath,
             });
           },
           child: Text(isEdit ? 'Save Changes' : 'Configure Folder'),
@@ -1004,6 +1030,555 @@ class _CustomFolderPickerDialogState extends State<CustomFolderPickerDialog> {
           child: const Text('Select Current'),
         ),
       ],
+    );
+  }
+}
+
+class SelectBackupDestinationDialog extends ConsumerStatefulWidget {
+  const SelectBackupDestinationDialog({super.key});
+
+  @override
+  ConsumerState<SelectBackupDestinationDialog> createState() => _SelectBackupDestinationDialogState();
+}
+
+class _SelectBackupDestinationDialogState extends ConsumerState<SelectBackupDestinationDialog> {
+  String _stage = 'options';
+  DeviceModel? _selectedDevice;
+  
+  String _currentPath = '';
+  List<Map<String, String>> _directories = [];
+  bool _isLoadingBrowser = false;
+  String? _browserError;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    if (_stage == 'options') {
+      return _buildOptionsStage(context, theme);
+    } else if (_stage == 'devices') {
+      return _buildDevicesStage(context, theme);
+    } else if (_stage == 'remote_browser') {
+      return _buildBrowserStage(context, theme);
+    }
+
+    return const SizedBox();
+  }
+
+  Widget _buildOptionsStage(BuildContext context, ThemeData theme) {
+    return AlertDialog(
+      title: const Text('Select Backup Destination'),
+      content: SizedBox(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(
+                Platform.isAndroid ? Icons.phone_android_rounded : Icons.computer_rounded,
+                color: theme.colorScheme.primary,
+                size: 28,
+              ),
+              title: const Text(
+                'This Device (Local Storage)',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: const Text('Back up to folder directories on this device.'),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: theme.colorScheme.outlineVariant),
+              ),
+              onTap: () async {
+                final picker = ref.read(folderPickerProvider);
+                if (!context.mounted) return;
+                final path = await picker.pickFolder(context);
+                if (path != null && context.mounted) {
+                  Navigator.of(context).pop({
+                    'destinationType': 'local',
+                    'destinationPath': path,
+                    'deviceUuid': null,
+                    'deviceName': null,
+                    'remoteFolderId': null,
+                    'remoteFolderPath': null,
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Icon(
+                Icons.devices_rounded,
+                color: theme.colorScheme.primary,
+                size: 28,
+              ),
+              title: const Text(
+                'Connected Devices',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: const Text('Back up to an online paired remote computer or phone.'),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: theme.colorScheme.outlineVariant),
+              ),
+              onTap: () {
+                setState(() {
+                  _stage = 'devices';
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDevicesStage(BuildContext context, ThemeData theme) {
+    final pairedAsync = ref.watch(pairedDevicesStreamProvider);
+
+    return AlertDialog(
+      title: const Text('Select Paired Device'),
+      content: SizedBox(
+        width: 450,
+        height: 300,
+        child: pairedAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, s) => Center(child: Text('Error loading devices: $e')),
+          data: (devices) {
+            if (devices.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.devices_other_rounded,
+                      size: 48,
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'No paired devices found.',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text('Go to Pairing screen to pair devices.'),
+                  ],
+                ),
+              );
+            }
+
+            return ListView.separated(
+              itemCount: devices.length,
+              separatorBuilder: (context, index) => const Divider(),
+              itemBuilder: (context, index) {
+                final device = devices[index];
+                final isOnline = device.connectionStatus == 'Online';
+
+                return ListTile(
+                  leading: Icon(
+                    device.platform.toLowerCase() == 'windows'
+                        ? Icons.laptop_windows_rounded
+                        : Icons.phone_android_rounded,
+                    color: isOnline ? theme.colorScheme.primary : Colors.grey,
+                  ),
+                  title: Text(
+                    device.name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isOnline ? null : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  subtitle: Text(
+                    'IP: ${device.ipAddress} | Platform: ${device.platform}',
+                    style: TextStyle(
+                      color: isOnline ? null : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isOnline ? Colors.green : Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        isOnline ? 'Online' : 'Offline',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isOnline ? Colors.green : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  enabled: isOnline,
+                  onTap: () {
+                    setState(() {
+                      _selectedDevice = device;
+                      _stage = 'remote_browser';
+                      _currentPath = '';
+                    });
+                    _loadRemoteDirectories('');
+                  },
+                );
+              },
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            setState(() {
+              _stage = 'options';
+            });
+          },
+          child: const Text('Back'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _loadRemoteDirectories(String path) async {
+    if (_selectedDevice == null) return;
+
+    setState(() {
+      _isLoadingBrowser = true;
+      _browserError = null;
+    });
+
+    try {
+      final transportManager = ref.read(transportManagerProvider);
+      final response = await transportManager.sendRequestAndWait(
+        _selectedDevice!.id,
+        PacketType.remoteFoldersRequest,
+        {'path': path},
+        PacketType.remoteFoldersResponse,
+      );
+
+      if (response['success'] == true) {
+        final List<dynamic> list = response['folders'] ?? response['roots'] ?? [];
+        setState(() {
+          _directories = list.map((item) => Map<String, String>.from(item.cast<String, dynamic>())).toList();
+          _currentPath = path;
+          _isLoadingBrowser = false;
+        });
+      } else {
+        setState(() {
+          _browserError = response['error'] ?? 'Unknown remote error';
+          _isLoadingBrowser = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _browserError = e.toString();
+        _isLoadingBrowser = false;
+      });
+    }
+  }
+
+  Future<void> _createRemoteFolder(String name) async {
+    if (_selectedDevice == null || name.trim().isEmpty) return;
+
+    setState(() {
+      _isLoadingBrowser = true;
+      _browserError = null;
+    });
+
+    try {
+      final transportManager = ref.read(transportManagerProvider);
+      final response = await transportManager.sendRequestAndWait(
+        _selectedDevice!.id,
+        PacketType.createFolderRequest,
+        {'parentPath': _currentPath, 'folderName': name},
+        PacketType.createFolderResponse,
+      );
+
+      if (response['success'] == true) {
+        await _loadRemoteDirectories(_currentPath);
+      } else {
+        setState(() {
+          _browserError = response['error'] ?? 'Failed to create folder';
+          _isLoadingBrowser = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _browserError = e.toString();
+        _isLoadingBrowser = false;
+      });
+    }
+  }
+
+  Future<void> _renameRemoteFolder(String path, String newName) async {
+    if (_selectedDevice == null || newName.trim().isEmpty) return;
+
+    setState(() {
+      _isLoadingBrowser = true;
+      _browserError = null;
+    });
+
+    try {
+      final transportManager = ref.read(transportManagerProvider);
+      final response = await transportManager.sendRequestAndWait(
+        _selectedDevice!.id,
+        PacketType.renameFolderRequest,
+        {'folderPath': path, 'newName': newName},
+        PacketType.renameFolderResponse,
+      );
+
+      if (response['success'] == true) {
+        await _loadRemoteDirectories(_currentPath);
+      } else {
+        setState(() {
+          _browserError = response['error'] ?? 'Failed to rename folder';
+          _isLoadingBrowser = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _browserError = e.toString();
+        _isLoadingBrowser = false;
+      });
+    }
+  }
+
+  Widget _buildBrowserStage(BuildContext context, ThemeData theme) {
+    final isRoot = _currentPath.isEmpty;
+
+    return AlertDialog(
+      title: Text('Choose Location on ${_selectedDevice?.name}'),
+      content: SizedBox(
+        width: 500,
+        height: 400,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.folder_open_rounded, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isRoot ? 'Device Root Directory' : _currentPath,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: _isLoadingBrowser
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 12),
+                          Text('Reading remote directory...'),
+                        ],
+                      ),
+                    )
+                  : _browserError != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.error_outline_rounded, color: theme.colorScheme.error, size: 40),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Error: $_browserError',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 12),
+                              ElevatedButton(
+                                onPressed: () => _loadRemoteDirectories(_currentPath),
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Column(
+                          children: [
+                            if (!isRoot)
+                              ListTile(
+                                leading: const Icon(Icons.arrow_upward_rounded),
+                                title: const Text('.. (Parent Directory)'),
+                                onTap: () {
+                                  if (Platform.isWindows || (_selectedDevice?.platform.toLowerCase() == 'windows')) {
+                                    final parts = _currentPath.split('\\');
+                                    if (parts.length > 2) {
+                                      parts.removeLast();
+                                      final parent = parts.join('\\');
+                                      _loadRemoteDirectories(parent.endsWith(':') ? '$parent\\' : parent);
+                                    } else {
+                                      _loadRemoteDirectories('');
+                                    }
+                                  } else {
+                                    final parts = _currentPath.split('/');
+                                    if (parts.length > 2) {
+                                      parts.removeLast();
+                                      _loadRemoteDirectories(parts.join('/'));
+                                    } else {
+                                      _loadRemoteDirectories('');
+                                    }
+                                  }
+                                },
+                              ),
+                            Expanded(
+                              child: ListView.builder(
+                                itemCount: _directories.length,
+                                itemBuilder: (context, index) {
+                                  final item = _directories[index];
+                                  final name = item['name'] ?? '';
+                                  final path = item['path'] ?? '';
+
+                                  return ListTile(
+                                    leading: const Icon(Icons.folder_rounded, color: Colors.amber),
+                                    title: Text(name),
+                                    onTap: () {
+                                      _loadRemoteDirectories(path);
+                                    },
+                                    trailing: PopupMenuButton<String>(
+                                      icon: const Icon(Icons.more_vert_rounded),
+                                      onSelected: (action) {
+                                        if (action == 'rename') {
+                                          _showTextPromptDialog(
+                                            context,
+                                            title: 'Rename Folder',
+                                            initialValue: name,
+                                            hintText: 'New folder name',
+                                            onConfirm: (val) => _renameRemoteFolder(path, val),
+                                          );
+                                        }
+                                      },
+                                      itemBuilder: (_) => [
+                                        const PopupMenuItem(
+                                          value: 'rename',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.edit_rounded, size: 18),
+                                              SizedBox(width: 8),
+                                              Text('Rename'),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded),
+          tooltip: 'Refresh',
+          onPressed: () => _loadRemoteDirectories(_currentPath),
+        ),
+        IconButton(
+          icon: const Icon(Icons.create_new_folder_rounded),
+          tooltip: 'Create New Folder',
+          onPressed: isRoot
+              ? null
+              : () {
+                  _showTextPromptDialog(
+                    context,
+                    title: 'Create New Folder',
+                    hintText: 'Folder name',
+                    onConfirm: (val) => _createRemoteFolder(val),
+                  );
+                },
+        ),
+        const Spacer(),
+        TextButton(
+          onPressed: () {
+            setState(() {
+              _stage = 'devices';
+            });
+          },
+          child: const Text('Back'),
+        ),
+        ElevatedButton(
+          onPressed: isRoot
+              ? null
+              : () {
+                  Navigator.of(context).pop({
+                    'destinationType': 'remote',
+                    'destinationPath': '${_selectedDevice!.name}: $_currentPath',
+                    'deviceUuid': _selectedDevice!.id,
+                    'deviceName': _selectedDevice!.name,
+                    'remoteFolderId': _currentPath,
+                    'remoteFolderPath': _currentPath,
+                  });
+                },
+          child: const Text('Choose Folder'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showTextPromptDialog(
+    BuildContext context, {
+    required String title,
+    String initialValue = '',
+    required String hintText,
+    required ValueChanged<String> onConfirm,
+  }) async {
+    final controller = TextEditingController(text: initialValue);
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(hintText: hintText),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.trim().isNotEmpty) {
+                onConfirm(controller.text.trim());
+                Navigator.of(context).pop();
+              }
+            },
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
     );
   }
 }

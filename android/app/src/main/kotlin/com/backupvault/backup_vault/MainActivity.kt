@@ -15,6 +15,7 @@ import android.provider.Settings
 import androidx.annotation.NonNull
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.plugin.common.MethodChannel
 import android.net.wifi.WifiManager
 import java.io.File
@@ -26,6 +27,16 @@ class MainActivity : FlutterActivity() {
     private val RUNTIME_PERMISSIONS_REQUEST_CODE = 4124
     
     private var multicastLock: WifiManager.MulticastLock? = null
+
+    override fun provideFlutterEngine(context: Context): FlutterEngine? {
+        val cached = FlutterEngineCache.getInstance().get("backup_vault_engine")
+        if (cached != null) {
+            return cached
+        }
+        val engine = FlutterEngine(context)
+        FlutterEngineCache.getInstance().put("backup_vault_engine", engine)
+        return engine
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +68,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        EngineManager.init(this, flutterEngine.dartExecutor.binaryMessenger)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "pickDirectory" -> {

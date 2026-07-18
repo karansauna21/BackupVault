@@ -86,7 +86,7 @@ class DashboardCard extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                   fontSize: 12,
                 ),
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),

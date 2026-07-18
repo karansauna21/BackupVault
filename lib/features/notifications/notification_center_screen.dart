@@ -169,6 +169,7 @@ class _NotificationCenterScreenState extends ConsumerState<NotificationCenterScr
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
+    final isMobile = width < 600;
     final isDesktop = width > 900;
     
     final notificationsAsync = ref.watch(filteredNotificationsProvider);
@@ -179,8 +180,9 @@ class _NotificationCenterScreenState extends ConsumerState<NotificationCenterScr
     return Scaffold(
       appBar: AppBar(
         title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Notification Center & Alerts'),
+            Text(isMobile ? 'Notifications' : 'Notification Center & Alerts'),
             const SizedBox(width: 8),
             if (unreadCount > 0)
               Badge(
@@ -190,21 +192,69 @@ class _NotificationCenterScreenState extends ConsumerState<NotificationCenterScr
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.done_all_rounded),
-            tooltip: 'Mark All as Read',
-            onPressed: () => controller.markAllAsRead(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_sweep_rounded),
-            tooltip: 'Clear History',
-            onPressed: () => _confirmClearHistory(context, controller),
-          ),
-          IconButton(
-            icon: const Icon(Icons.bug_report_rounded),
-            tooltip: 'Trigger Test Notification',
-            onPressed: _triggerTestNotification,
-          ),
+          if (!isMobile) ...[
+            IconButton(
+              icon: const Icon(Icons.done_all_rounded),
+              tooltip: 'Mark All as Read',
+              onPressed: () => controller.markAllAsRead(),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_sweep_rounded),
+              tooltip: 'Clear History',
+              onPressed: () => _confirmClearHistory(context, controller),
+            ),
+            IconButton(
+              icon: const Icon(Icons.bug_report_rounded),
+              tooltip: 'Trigger Test Notification',
+              onPressed: _triggerTestNotification,
+            ),
+          ] else ...[
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded),
+              tooltip: 'Notification Options',
+              onSelected: (value) {
+                if (value == 'markRead') {
+                  controller.markAllAsRead();
+                } else if (value == 'clear') {
+                  _confirmClearHistory(context, controller);
+                } else if (value == 'test') {
+                  _triggerTestNotification();
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'markRead',
+                  child: Row(
+                    children: [
+                      Icon(Icons.done_all_rounded),
+                      SizedBox(width: 8),
+                      Text('Mark all read'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'clear',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_sweep_rounded),
+                      SizedBox(width: 8),
+                      Text('Clear history'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'test',
+                  child: Row(
+                    children: [
+                      Icon(Icons.bug_report_rounded),
+                      SizedBox(width: 8),
+                      Text('Trigger test alert'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
       body: isDesktop

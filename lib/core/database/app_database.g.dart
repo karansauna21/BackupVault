@@ -118,6 +118,72 @@ class $BackupFoldersTable extends BackupFolders
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _destinationTypeMeta = const VerificationMeta(
+    'destinationType',
+  );
+  @override
+  late final GeneratedColumn<String> destinationType = GeneratedColumn<String>(
+    'destination_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deviceUuidMeta = const VerificationMeta(
+    'deviceUuid',
+  );
+  @override
+  late final GeneratedColumn<String> deviceUuid = GeneratedColumn<String>(
+    'device_uuid',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deviceNameMeta = const VerificationMeta(
+    'deviceName',
+  );
+  @override
+  late final GeneratedColumn<String> deviceName = GeneratedColumn<String>(
+    'device_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _remoteFolderIdMeta = const VerificationMeta(
+    'remoteFolderId',
+  );
+  @override
+  late final GeneratedColumn<String> remoteFolderId = GeneratedColumn<String>(
+    'remote_folder_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _remoteFolderPathMeta = const VerificationMeta(
+    'remoteFolderPath',
+  );
+  @override
+  late final GeneratedColumn<String> remoteFolderPath = GeneratedColumn<String>(
+    'remote_folder_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastVerifiedMeta = const VerificationMeta(
+    'lastVerified',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastVerified = GeneratedColumn<DateTime>(
+    'last_verified',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -129,6 +195,12 @@ class $BackupFoldersTable extends BackupFolders
     backupInterval,
     lastBackupAt,
     nextBackupAt,
+    destinationType,
+    deviceUuid,
+    deviceName,
+    remoteFolderId,
+    remoteFolderPath,
+    lastVerified,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -211,6 +283,54 @@ class $BackupFoldersTable extends BackupFolders
         ),
       );
     }
+    if (data.containsKey('destination_type')) {
+      context.handle(
+        _destinationTypeMeta,
+        destinationType.isAcceptableOrUnknown(
+          data['destination_type']!,
+          _destinationTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('device_uuid')) {
+      context.handle(
+        _deviceUuidMeta,
+        deviceUuid.isAcceptableOrUnknown(data['device_uuid']!, _deviceUuidMeta),
+      );
+    }
+    if (data.containsKey('device_name')) {
+      context.handle(
+        _deviceNameMeta,
+        deviceName.isAcceptableOrUnknown(data['device_name']!, _deviceNameMeta),
+      );
+    }
+    if (data.containsKey('remote_folder_id')) {
+      context.handle(
+        _remoteFolderIdMeta,
+        remoteFolderId.isAcceptableOrUnknown(
+          data['remote_folder_id']!,
+          _remoteFolderIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('remote_folder_path')) {
+      context.handle(
+        _remoteFolderPathMeta,
+        remoteFolderPath.isAcceptableOrUnknown(
+          data['remote_folder_path']!,
+          _remoteFolderPathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_verified')) {
+      context.handle(
+        _lastVerifiedMeta,
+        lastVerified.isAcceptableOrUnknown(
+          data['last_verified']!,
+          _lastVerifiedMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -256,6 +376,30 @@ class $BackupFoldersTable extends BackupFolders
         DriftSqlType.dateTime,
         data['${effectivePrefix}next_backup_at'],
       ),
+      destinationType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}destination_type'],
+      ),
+      deviceUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_uuid'],
+      ),
+      deviceName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_name'],
+      ),
+      remoteFolderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}remote_folder_id'],
+      ),
+      remoteFolderPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}remote_folder_path'],
+      ),
+      lastVerified: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_verified'],
+      ),
     );
   }
 
@@ -275,6 +419,12 @@ class BackupFolder extends DataClass implements Insertable<BackupFolder> {
   final String backupInterval;
   final DateTime? lastBackupAt;
   final DateTime? nextBackupAt;
+  final String? destinationType;
+  final String? deviceUuid;
+  final String? deviceName;
+  final String? remoteFolderId;
+  final String? remoteFolderPath;
+  final DateTime? lastVerified;
   const BackupFolder({
     required this.id,
     required this.name,
@@ -285,6 +435,12 @@ class BackupFolder extends DataClass implements Insertable<BackupFolder> {
     required this.backupInterval,
     this.lastBackupAt,
     this.nextBackupAt,
+    this.destinationType,
+    this.deviceUuid,
+    this.deviceName,
+    this.remoteFolderId,
+    this.remoteFolderPath,
+    this.lastVerified,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -301,6 +457,24 @@ class BackupFolder extends DataClass implements Insertable<BackupFolder> {
     }
     if (!nullToAbsent || nextBackupAt != null) {
       map['next_backup_at'] = Variable<DateTime>(nextBackupAt);
+    }
+    if (!nullToAbsent || destinationType != null) {
+      map['destination_type'] = Variable<String>(destinationType);
+    }
+    if (!nullToAbsent || deviceUuid != null) {
+      map['device_uuid'] = Variable<String>(deviceUuid);
+    }
+    if (!nullToAbsent || deviceName != null) {
+      map['device_name'] = Variable<String>(deviceName);
+    }
+    if (!nullToAbsent || remoteFolderId != null) {
+      map['remote_folder_id'] = Variable<String>(remoteFolderId);
+    }
+    if (!nullToAbsent || remoteFolderPath != null) {
+      map['remote_folder_path'] = Variable<String>(remoteFolderPath);
+    }
+    if (!nullToAbsent || lastVerified != null) {
+      map['last_verified'] = Variable<DateTime>(lastVerified);
     }
     return map;
   }
@@ -320,6 +494,24 @@ class BackupFolder extends DataClass implements Insertable<BackupFolder> {
       nextBackupAt: nextBackupAt == null && nullToAbsent
           ? const Value.absent()
           : Value(nextBackupAt),
+      destinationType: destinationType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(destinationType),
+      deviceUuid: deviceUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deviceUuid),
+      deviceName: deviceName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deviceName),
+      remoteFolderId: remoteFolderId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteFolderId),
+      remoteFolderPath: remoteFolderPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteFolderPath),
+      lastVerified: lastVerified == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastVerified),
     );
   }
 
@@ -338,6 +530,12 @@ class BackupFolder extends DataClass implements Insertable<BackupFolder> {
       backupInterval: serializer.fromJson<String>(json['backupInterval']),
       lastBackupAt: serializer.fromJson<DateTime?>(json['lastBackupAt']),
       nextBackupAt: serializer.fromJson<DateTime?>(json['nextBackupAt']),
+      destinationType: serializer.fromJson<String?>(json['destinationType']),
+      deviceUuid: serializer.fromJson<String?>(json['deviceUuid']),
+      deviceName: serializer.fromJson<String?>(json['deviceName']),
+      remoteFolderId: serializer.fromJson<String?>(json['remoteFolderId']),
+      remoteFolderPath: serializer.fromJson<String?>(json['remoteFolderPath']),
+      lastVerified: serializer.fromJson<DateTime?>(json['lastVerified']),
     );
   }
   @override
@@ -353,6 +551,12 @@ class BackupFolder extends DataClass implements Insertable<BackupFolder> {
       'backupInterval': serializer.toJson<String>(backupInterval),
       'lastBackupAt': serializer.toJson<DateTime?>(lastBackupAt),
       'nextBackupAt': serializer.toJson<DateTime?>(nextBackupAt),
+      'destinationType': serializer.toJson<String?>(destinationType),
+      'deviceUuid': serializer.toJson<String?>(deviceUuid),
+      'deviceName': serializer.toJson<String?>(deviceName),
+      'remoteFolderId': serializer.toJson<String?>(remoteFolderId),
+      'remoteFolderPath': serializer.toJson<String?>(remoteFolderPath),
+      'lastVerified': serializer.toJson<DateTime?>(lastVerified),
     };
   }
 
@@ -366,6 +570,12 @@ class BackupFolder extends DataClass implements Insertable<BackupFolder> {
     String? backupInterval,
     Value<DateTime?> lastBackupAt = const Value.absent(),
     Value<DateTime?> nextBackupAt = const Value.absent(),
+    Value<String?> destinationType = const Value.absent(),
+    Value<String?> deviceUuid = const Value.absent(),
+    Value<String?> deviceName = const Value.absent(),
+    Value<String?> remoteFolderId = const Value.absent(),
+    Value<String?> remoteFolderPath = const Value.absent(),
+    Value<DateTime?> lastVerified = const Value.absent(),
   }) => BackupFolder(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -376,6 +586,18 @@ class BackupFolder extends DataClass implements Insertable<BackupFolder> {
     backupInterval: backupInterval ?? this.backupInterval,
     lastBackupAt: lastBackupAt.present ? lastBackupAt.value : this.lastBackupAt,
     nextBackupAt: nextBackupAt.present ? nextBackupAt.value : this.nextBackupAt,
+    destinationType: destinationType.present
+        ? destinationType.value
+        : this.destinationType,
+    deviceUuid: deviceUuid.present ? deviceUuid.value : this.deviceUuid,
+    deviceName: deviceName.present ? deviceName.value : this.deviceName,
+    remoteFolderId: remoteFolderId.present
+        ? remoteFolderId.value
+        : this.remoteFolderId,
+    remoteFolderPath: remoteFolderPath.present
+        ? remoteFolderPath.value
+        : this.remoteFolderPath,
+    lastVerified: lastVerified.present ? lastVerified.value : this.lastVerified,
   );
   BackupFolder copyWithCompanion(BackupFoldersCompanion data) {
     return BackupFolder(
@@ -398,6 +620,24 @@ class BackupFolder extends DataClass implements Insertable<BackupFolder> {
       nextBackupAt: data.nextBackupAt.present
           ? data.nextBackupAt.value
           : this.nextBackupAt,
+      destinationType: data.destinationType.present
+          ? data.destinationType.value
+          : this.destinationType,
+      deviceUuid: data.deviceUuid.present
+          ? data.deviceUuid.value
+          : this.deviceUuid,
+      deviceName: data.deviceName.present
+          ? data.deviceName.value
+          : this.deviceName,
+      remoteFolderId: data.remoteFolderId.present
+          ? data.remoteFolderId.value
+          : this.remoteFolderId,
+      remoteFolderPath: data.remoteFolderPath.present
+          ? data.remoteFolderPath.value
+          : this.remoteFolderPath,
+      lastVerified: data.lastVerified.present
+          ? data.lastVerified.value
+          : this.lastVerified,
     );
   }
 
@@ -412,7 +652,13 @@ class BackupFolder extends DataClass implements Insertable<BackupFolder> {
           ..write('createdAt: $createdAt, ')
           ..write('backupInterval: $backupInterval, ')
           ..write('lastBackupAt: $lastBackupAt, ')
-          ..write('nextBackupAt: $nextBackupAt')
+          ..write('nextBackupAt: $nextBackupAt, ')
+          ..write('destinationType: $destinationType, ')
+          ..write('deviceUuid: $deviceUuid, ')
+          ..write('deviceName: $deviceName, ')
+          ..write('remoteFolderId: $remoteFolderId, ')
+          ..write('remoteFolderPath: $remoteFolderPath, ')
+          ..write('lastVerified: $lastVerified')
           ..write(')'))
         .toString();
   }
@@ -428,6 +674,12 @@ class BackupFolder extends DataClass implements Insertable<BackupFolder> {
     backupInterval,
     lastBackupAt,
     nextBackupAt,
+    destinationType,
+    deviceUuid,
+    deviceName,
+    remoteFolderId,
+    remoteFolderPath,
+    lastVerified,
   );
   @override
   bool operator ==(Object other) =>
@@ -441,7 +693,13 @@ class BackupFolder extends DataClass implements Insertable<BackupFolder> {
           other.createdAt == this.createdAt &&
           other.backupInterval == this.backupInterval &&
           other.lastBackupAt == this.lastBackupAt &&
-          other.nextBackupAt == this.nextBackupAt);
+          other.nextBackupAt == this.nextBackupAt &&
+          other.destinationType == this.destinationType &&
+          other.deviceUuid == this.deviceUuid &&
+          other.deviceName == this.deviceName &&
+          other.remoteFolderId == this.remoteFolderId &&
+          other.remoteFolderPath == this.remoteFolderPath &&
+          other.lastVerified == this.lastVerified);
 }
 
 class BackupFoldersCompanion extends UpdateCompanion<BackupFolder> {
@@ -454,6 +712,12 @@ class BackupFoldersCompanion extends UpdateCompanion<BackupFolder> {
   final Value<String> backupInterval;
   final Value<DateTime?> lastBackupAt;
   final Value<DateTime?> nextBackupAt;
+  final Value<String?> destinationType;
+  final Value<String?> deviceUuid;
+  final Value<String?> deviceName;
+  final Value<String?> remoteFolderId;
+  final Value<String?> remoteFolderPath;
+  final Value<DateTime?> lastVerified;
   const BackupFoldersCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -464,6 +728,12 @@ class BackupFoldersCompanion extends UpdateCompanion<BackupFolder> {
     this.backupInterval = const Value.absent(),
     this.lastBackupAt = const Value.absent(),
     this.nextBackupAt = const Value.absent(),
+    this.destinationType = const Value.absent(),
+    this.deviceUuid = const Value.absent(),
+    this.deviceName = const Value.absent(),
+    this.remoteFolderId = const Value.absent(),
+    this.remoteFolderPath = const Value.absent(),
+    this.lastVerified = const Value.absent(),
   });
   BackupFoldersCompanion.insert({
     this.id = const Value.absent(),
@@ -475,6 +745,12 @@ class BackupFoldersCompanion extends UpdateCompanion<BackupFolder> {
     this.backupInterval = const Value.absent(),
     this.lastBackupAt = const Value.absent(),
     this.nextBackupAt = const Value.absent(),
+    this.destinationType = const Value.absent(),
+    this.deviceUuid = const Value.absent(),
+    this.deviceName = const Value.absent(),
+    this.remoteFolderId = const Value.absent(),
+    this.remoteFolderPath = const Value.absent(),
+    this.lastVerified = const Value.absent(),
   }) : name = Value(name),
        sourcePath = Value(sourcePath),
        destinationPath = Value(destinationPath);
@@ -488,6 +764,12 @@ class BackupFoldersCompanion extends UpdateCompanion<BackupFolder> {
     Expression<String>? backupInterval,
     Expression<DateTime>? lastBackupAt,
     Expression<DateTime>? nextBackupAt,
+    Expression<String>? destinationType,
+    Expression<String>? deviceUuid,
+    Expression<String>? deviceName,
+    Expression<String>? remoteFolderId,
+    Expression<String>? remoteFolderPath,
+    Expression<DateTime>? lastVerified,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -499,6 +781,12 @@ class BackupFoldersCompanion extends UpdateCompanion<BackupFolder> {
       if (backupInterval != null) 'backup_interval': backupInterval,
       if (lastBackupAt != null) 'last_backup_at': lastBackupAt,
       if (nextBackupAt != null) 'next_backup_at': nextBackupAt,
+      if (destinationType != null) 'destination_type': destinationType,
+      if (deviceUuid != null) 'device_uuid': deviceUuid,
+      if (deviceName != null) 'device_name': deviceName,
+      if (remoteFolderId != null) 'remote_folder_id': remoteFolderId,
+      if (remoteFolderPath != null) 'remote_folder_path': remoteFolderPath,
+      if (lastVerified != null) 'last_verified': lastVerified,
     });
   }
 
@@ -512,6 +800,12 @@ class BackupFoldersCompanion extends UpdateCompanion<BackupFolder> {
     Value<String>? backupInterval,
     Value<DateTime?>? lastBackupAt,
     Value<DateTime?>? nextBackupAt,
+    Value<String?>? destinationType,
+    Value<String?>? deviceUuid,
+    Value<String?>? deviceName,
+    Value<String?>? remoteFolderId,
+    Value<String?>? remoteFolderPath,
+    Value<DateTime?>? lastVerified,
   }) {
     return BackupFoldersCompanion(
       id: id ?? this.id,
@@ -523,6 +817,12 @@ class BackupFoldersCompanion extends UpdateCompanion<BackupFolder> {
       backupInterval: backupInterval ?? this.backupInterval,
       lastBackupAt: lastBackupAt ?? this.lastBackupAt,
       nextBackupAt: nextBackupAt ?? this.nextBackupAt,
+      destinationType: destinationType ?? this.destinationType,
+      deviceUuid: deviceUuid ?? this.deviceUuid,
+      deviceName: deviceName ?? this.deviceName,
+      remoteFolderId: remoteFolderId ?? this.remoteFolderId,
+      remoteFolderPath: remoteFolderPath ?? this.remoteFolderPath,
+      lastVerified: lastVerified ?? this.lastVerified,
     );
   }
 
@@ -556,6 +856,24 @@ class BackupFoldersCompanion extends UpdateCompanion<BackupFolder> {
     if (nextBackupAt.present) {
       map['next_backup_at'] = Variable<DateTime>(nextBackupAt.value);
     }
+    if (destinationType.present) {
+      map['destination_type'] = Variable<String>(destinationType.value);
+    }
+    if (deviceUuid.present) {
+      map['device_uuid'] = Variable<String>(deviceUuid.value);
+    }
+    if (deviceName.present) {
+      map['device_name'] = Variable<String>(deviceName.value);
+    }
+    if (remoteFolderId.present) {
+      map['remote_folder_id'] = Variable<String>(remoteFolderId.value);
+    }
+    if (remoteFolderPath.present) {
+      map['remote_folder_path'] = Variable<String>(remoteFolderPath.value);
+    }
+    if (lastVerified.present) {
+      map['last_verified'] = Variable<DateTime>(lastVerified.value);
+    }
     return map;
   }
 
@@ -570,7 +888,13 @@ class BackupFoldersCompanion extends UpdateCompanion<BackupFolder> {
           ..write('createdAt: $createdAt, ')
           ..write('backupInterval: $backupInterval, ')
           ..write('lastBackupAt: $lastBackupAt, ')
-          ..write('nextBackupAt: $nextBackupAt')
+          ..write('nextBackupAt: $nextBackupAt, ')
+          ..write('destinationType: $destinationType, ')
+          ..write('deviceUuid: $deviceUuid, ')
+          ..write('deviceName: $deviceName, ')
+          ..write('remoteFolderId: $remoteFolderId, ')
+          ..write('remoteFolderPath: $remoteFolderPath, ')
+          ..write('lastVerified: $lastVerified')
           ..write(')'))
         .toString();
   }
@@ -4210,6 +4534,1504 @@ class PairedDevicesCompanion extends UpdateCompanion<PairedDevice> {
   }
 }
 
+class $BackupJobsTable extends BackupJobs
+    with TableInfo<$BackupJobsTable, BackupJob> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BackupJobsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deviceUuidMeta = const VerificationMeta(
+    'deviceUuid',
+  );
+  @override
+  late final GeneratedColumn<String> deviceUuid = GeneratedColumn<String>(
+    'device_uuid',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _folderUuidMeta = const VerificationMeta(
+    'folderUuid',
+  );
+  @override
+  late final GeneratedColumn<String> folderUuid = GeneratedColumn<String>(
+    'folder_uuid',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _folderIdMeta = const VerificationMeta(
+    'folderId',
+  );
+  @override
+  late final GeneratedColumn<int> folderId = GeneratedColumn<int>(
+    'folder_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _destinationUuidMeta = const VerificationMeta(
+    'destinationUuid',
+  );
+  @override
+  late final GeneratedColumn<String> destinationUuid = GeneratedColumn<String>(
+    'destination_uuid',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startedTimeMeta = const VerificationMeta(
+    'startedTime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startedTime = GeneratedColumn<DateTime>(
+    'started_time',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _completedTimeMeta = const VerificationMeta(
+    'completedTime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> completedTime =
+      GeneratedColumn<DateTime>(
+        'completed_time',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _progressMeta = const VerificationMeta(
+    'progress',
+  );
+  @override
+  late final GeneratedColumn<double> progress = GeneratedColumn<double>(
+    'progress',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _totalFilesMeta = const VerificationMeta(
+    'totalFiles',
+  );
+  @override
+  late final GeneratedColumn<int> totalFiles = GeneratedColumn<int>(
+    'total_files',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _totalSizeMeta = const VerificationMeta(
+    'totalSize',
+  );
+  @override
+  late final GeneratedColumn<int> totalSize = GeneratedColumn<int>(
+    'total_size',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _filesToBackupMeta = const VerificationMeta(
+    'filesToBackup',
+  );
+  @override
+  late final GeneratedColumn<int> filesToBackup = GeneratedColumn<int>(
+    'files_to_backup',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _skippedFilesMeta = const VerificationMeta(
+    'skippedFiles',
+  );
+  @override
+  late final GeneratedColumn<int> skippedFiles = GeneratedColumn<int>(
+    'skipped_files',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _errorMeta = const VerificationMeta('error');
+  @override
+  late final GeneratedColumn<String> error = GeneratedColumn<String>(
+    'error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    deviceUuid,
+    folderUuid,
+    folderId,
+    destinationUuid,
+    createdAt,
+    startedTime,
+    completedTime,
+    status,
+    progress,
+    totalFiles,
+    totalSize,
+    filesToBackup,
+    skippedFiles,
+    error,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'backup_jobs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BackupJob> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('device_uuid')) {
+      context.handle(
+        _deviceUuidMeta,
+        deviceUuid.isAcceptableOrUnknown(data['device_uuid']!, _deviceUuidMeta),
+      );
+    }
+    if (data.containsKey('folder_uuid')) {
+      context.handle(
+        _folderUuidMeta,
+        folderUuid.isAcceptableOrUnknown(data['folder_uuid']!, _folderUuidMeta),
+      );
+    }
+    if (data.containsKey('folder_id')) {
+      context.handle(
+        _folderIdMeta,
+        folderId.isAcceptableOrUnknown(data['folder_id']!, _folderIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_folderIdMeta);
+    }
+    if (data.containsKey('destination_uuid')) {
+      context.handle(
+        _destinationUuidMeta,
+        destinationUuid.isAcceptableOrUnknown(
+          data['destination_uuid']!,
+          _destinationUuidMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('started_time')) {
+      context.handle(
+        _startedTimeMeta,
+        startedTime.isAcceptableOrUnknown(
+          data['started_time']!,
+          _startedTimeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('completed_time')) {
+      context.handle(
+        _completedTimeMeta,
+        completedTime.isAcceptableOrUnknown(
+          data['completed_time']!,
+          _completedTimeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('progress')) {
+      context.handle(
+        _progressMeta,
+        progress.isAcceptableOrUnknown(data['progress']!, _progressMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_progressMeta);
+    }
+    if (data.containsKey('total_files')) {
+      context.handle(
+        _totalFilesMeta,
+        totalFiles.isAcceptableOrUnknown(data['total_files']!, _totalFilesMeta),
+      );
+    }
+    if (data.containsKey('total_size')) {
+      context.handle(
+        _totalSizeMeta,
+        totalSize.isAcceptableOrUnknown(data['total_size']!, _totalSizeMeta),
+      );
+    }
+    if (data.containsKey('files_to_backup')) {
+      context.handle(
+        _filesToBackupMeta,
+        filesToBackup.isAcceptableOrUnknown(
+          data['files_to_backup']!,
+          _filesToBackupMeta,
+        ),
+      );
+    }
+    if (data.containsKey('skipped_files')) {
+      context.handle(
+        _skippedFilesMeta,
+        skippedFiles.isAcceptableOrUnknown(
+          data['skipped_files']!,
+          _skippedFilesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('error')) {
+      context.handle(
+        _errorMeta,
+        error.isAcceptableOrUnknown(data['error']!, _errorMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BackupJob map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BackupJob(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      deviceUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_uuid'],
+      ),
+      folderUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}folder_uuid'],
+      ),
+      folderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}folder_id'],
+      )!,
+      destinationUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}destination_uuid'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      startedTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}started_time'],
+      ),
+      completedTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}completed_time'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      progress: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}progress'],
+      )!,
+      totalFiles: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}total_files'],
+      )!,
+      totalSize: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}total_size'],
+      )!,
+      filesToBackup: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}files_to_backup'],
+      )!,
+      skippedFiles: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}skipped_files'],
+      )!,
+      error: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error'],
+      ),
+    );
+  }
+
+  @override
+  $BackupJobsTable createAlias(String alias) {
+    return $BackupJobsTable(attachedDatabase, alias);
+  }
+}
+
+class BackupJob extends DataClass implements Insertable<BackupJob> {
+  final String id;
+  final String? deviceUuid;
+  final String? folderUuid;
+  final int folderId;
+  final String? destinationUuid;
+  final DateTime createdAt;
+  final DateTime? startedTime;
+  final DateTime? completedTime;
+  final String status;
+  final double progress;
+  final int totalFiles;
+  final int totalSize;
+  final int filesToBackup;
+  final int skippedFiles;
+  final String? error;
+  const BackupJob({
+    required this.id,
+    this.deviceUuid,
+    this.folderUuid,
+    required this.folderId,
+    this.destinationUuid,
+    required this.createdAt,
+    this.startedTime,
+    this.completedTime,
+    required this.status,
+    required this.progress,
+    required this.totalFiles,
+    required this.totalSize,
+    required this.filesToBackup,
+    required this.skippedFiles,
+    this.error,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || deviceUuid != null) {
+      map['device_uuid'] = Variable<String>(deviceUuid);
+    }
+    if (!nullToAbsent || folderUuid != null) {
+      map['folder_uuid'] = Variable<String>(folderUuid);
+    }
+    map['folder_id'] = Variable<int>(folderId);
+    if (!nullToAbsent || destinationUuid != null) {
+      map['destination_uuid'] = Variable<String>(destinationUuid);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || startedTime != null) {
+      map['started_time'] = Variable<DateTime>(startedTime);
+    }
+    if (!nullToAbsent || completedTime != null) {
+      map['completed_time'] = Variable<DateTime>(completedTime);
+    }
+    map['status'] = Variable<String>(status);
+    map['progress'] = Variable<double>(progress);
+    map['total_files'] = Variable<int>(totalFiles);
+    map['total_size'] = Variable<int>(totalSize);
+    map['files_to_backup'] = Variable<int>(filesToBackup);
+    map['skipped_files'] = Variable<int>(skippedFiles);
+    if (!nullToAbsent || error != null) {
+      map['error'] = Variable<String>(error);
+    }
+    return map;
+  }
+
+  BackupJobsCompanion toCompanion(bool nullToAbsent) {
+    return BackupJobsCompanion(
+      id: Value(id),
+      deviceUuid: deviceUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deviceUuid),
+      folderUuid: folderUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(folderUuid),
+      folderId: Value(folderId),
+      destinationUuid: destinationUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(destinationUuid),
+      createdAt: Value(createdAt),
+      startedTime: startedTime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(startedTime),
+      completedTime: completedTime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(completedTime),
+      status: Value(status),
+      progress: Value(progress),
+      totalFiles: Value(totalFiles),
+      totalSize: Value(totalSize),
+      filesToBackup: Value(filesToBackup),
+      skippedFiles: Value(skippedFiles),
+      error: error == null && nullToAbsent
+          ? const Value.absent()
+          : Value(error),
+    );
+  }
+
+  factory BackupJob.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BackupJob(
+      id: serializer.fromJson<String>(json['id']),
+      deviceUuid: serializer.fromJson<String?>(json['deviceUuid']),
+      folderUuid: serializer.fromJson<String?>(json['folderUuid']),
+      folderId: serializer.fromJson<int>(json['folderId']),
+      destinationUuid: serializer.fromJson<String?>(json['destinationUuid']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      startedTime: serializer.fromJson<DateTime?>(json['startedTime']),
+      completedTime: serializer.fromJson<DateTime?>(json['completedTime']),
+      status: serializer.fromJson<String>(json['status']),
+      progress: serializer.fromJson<double>(json['progress']),
+      totalFiles: serializer.fromJson<int>(json['totalFiles']),
+      totalSize: serializer.fromJson<int>(json['totalSize']),
+      filesToBackup: serializer.fromJson<int>(json['filesToBackup']),
+      skippedFiles: serializer.fromJson<int>(json['skippedFiles']),
+      error: serializer.fromJson<String?>(json['error']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'deviceUuid': serializer.toJson<String?>(deviceUuid),
+      'folderUuid': serializer.toJson<String?>(folderUuid),
+      'folderId': serializer.toJson<int>(folderId),
+      'destinationUuid': serializer.toJson<String?>(destinationUuid),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'startedTime': serializer.toJson<DateTime?>(startedTime),
+      'completedTime': serializer.toJson<DateTime?>(completedTime),
+      'status': serializer.toJson<String>(status),
+      'progress': serializer.toJson<double>(progress),
+      'totalFiles': serializer.toJson<int>(totalFiles),
+      'totalSize': serializer.toJson<int>(totalSize),
+      'filesToBackup': serializer.toJson<int>(filesToBackup),
+      'skippedFiles': serializer.toJson<int>(skippedFiles),
+      'error': serializer.toJson<String?>(error),
+    };
+  }
+
+  BackupJob copyWith({
+    String? id,
+    Value<String?> deviceUuid = const Value.absent(),
+    Value<String?> folderUuid = const Value.absent(),
+    int? folderId,
+    Value<String?> destinationUuid = const Value.absent(),
+    DateTime? createdAt,
+    Value<DateTime?> startedTime = const Value.absent(),
+    Value<DateTime?> completedTime = const Value.absent(),
+    String? status,
+    double? progress,
+    int? totalFiles,
+    int? totalSize,
+    int? filesToBackup,
+    int? skippedFiles,
+    Value<String?> error = const Value.absent(),
+  }) => BackupJob(
+    id: id ?? this.id,
+    deviceUuid: deviceUuid.present ? deviceUuid.value : this.deviceUuid,
+    folderUuid: folderUuid.present ? folderUuid.value : this.folderUuid,
+    folderId: folderId ?? this.folderId,
+    destinationUuid: destinationUuid.present
+        ? destinationUuid.value
+        : this.destinationUuid,
+    createdAt: createdAt ?? this.createdAt,
+    startedTime: startedTime.present ? startedTime.value : this.startedTime,
+    completedTime: completedTime.present
+        ? completedTime.value
+        : this.completedTime,
+    status: status ?? this.status,
+    progress: progress ?? this.progress,
+    totalFiles: totalFiles ?? this.totalFiles,
+    totalSize: totalSize ?? this.totalSize,
+    filesToBackup: filesToBackup ?? this.filesToBackup,
+    skippedFiles: skippedFiles ?? this.skippedFiles,
+    error: error.present ? error.value : this.error,
+  );
+  BackupJob copyWithCompanion(BackupJobsCompanion data) {
+    return BackupJob(
+      id: data.id.present ? data.id.value : this.id,
+      deviceUuid: data.deviceUuid.present
+          ? data.deviceUuid.value
+          : this.deviceUuid,
+      folderUuid: data.folderUuid.present
+          ? data.folderUuid.value
+          : this.folderUuid,
+      folderId: data.folderId.present ? data.folderId.value : this.folderId,
+      destinationUuid: data.destinationUuid.present
+          ? data.destinationUuid.value
+          : this.destinationUuid,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      startedTime: data.startedTime.present
+          ? data.startedTime.value
+          : this.startedTime,
+      completedTime: data.completedTime.present
+          ? data.completedTime.value
+          : this.completedTime,
+      status: data.status.present ? data.status.value : this.status,
+      progress: data.progress.present ? data.progress.value : this.progress,
+      totalFiles: data.totalFiles.present
+          ? data.totalFiles.value
+          : this.totalFiles,
+      totalSize: data.totalSize.present ? data.totalSize.value : this.totalSize,
+      filesToBackup: data.filesToBackup.present
+          ? data.filesToBackup.value
+          : this.filesToBackup,
+      skippedFiles: data.skippedFiles.present
+          ? data.skippedFiles.value
+          : this.skippedFiles,
+      error: data.error.present ? data.error.value : this.error,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BackupJob(')
+          ..write('id: $id, ')
+          ..write('deviceUuid: $deviceUuid, ')
+          ..write('folderUuid: $folderUuid, ')
+          ..write('folderId: $folderId, ')
+          ..write('destinationUuid: $destinationUuid, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('startedTime: $startedTime, ')
+          ..write('completedTime: $completedTime, ')
+          ..write('status: $status, ')
+          ..write('progress: $progress, ')
+          ..write('totalFiles: $totalFiles, ')
+          ..write('totalSize: $totalSize, ')
+          ..write('filesToBackup: $filesToBackup, ')
+          ..write('skippedFiles: $skippedFiles, ')
+          ..write('error: $error')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    deviceUuid,
+    folderUuid,
+    folderId,
+    destinationUuid,
+    createdAt,
+    startedTime,
+    completedTime,
+    status,
+    progress,
+    totalFiles,
+    totalSize,
+    filesToBackup,
+    skippedFiles,
+    error,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BackupJob &&
+          other.id == this.id &&
+          other.deviceUuid == this.deviceUuid &&
+          other.folderUuid == this.folderUuid &&
+          other.folderId == this.folderId &&
+          other.destinationUuid == this.destinationUuid &&
+          other.createdAt == this.createdAt &&
+          other.startedTime == this.startedTime &&
+          other.completedTime == this.completedTime &&
+          other.status == this.status &&
+          other.progress == this.progress &&
+          other.totalFiles == this.totalFiles &&
+          other.totalSize == this.totalSize &&
+          other.filesToBackup == this.filesToBackup &&
+          other.skippedFiles == this.skippedFiles &&
+          other.error == this.error);
+}
+
+class BackupJobsCompanion extends UpdateCompanion<BackupJob> {
+  final Value<String> id;
+  final Value<String?> deviceUuid;
+  final Value<String?> folderUuid;
+  final Value<int> folderId;
+  final Value<String?> destinationUuid;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> startedTime;
+  final Value<DateTime?> completedTime;
+  final Value<String> status;
+  final Value<double> progress;
+  final Value<int> totalFiles;
+  final Value<int> totalSize;
+  final Value<int> filesToBackup;
+  final Value<int> skippedFiles;
+  final Value<String?> error;
+  final Value<int> rowid;
+  const BackupJobsCompanion({
+    this.id = const Value.absent(),
+    this.deviceUuid = const Value.absent(),
+    this.folderUuid = const Value.absent(),
+    this.folderId = const Value.absent(),
+    this.destinationUuid = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.startedTime = const Value.absent(),
+    this.completedTime = const Value.absent(),
+    this.status = const Value.absent(),
+    this.progress = const Value.absent(),
+    this.totalFiles = const Value.absent(),
+    this.totalSize = const Value.absent(),
+    this.filesToBackup = const Value.absent(),
+    this.skippedFiles = const Value.absent(),
+    this.error = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BackupJobsCompanion.insert({
+    required String id,
+    this.deviceUuid = const Value.absent(),
+    this.folderUuid = const Value.absent(),
+    required int folderId,
+    this.destinationUuid = const Value.absent(),
+    required DateTime createdAt,
+    this.startedTime = const Value.absent(),
+    this.completedTime = const Value.absent(),
+    required String status,
+    required double progress,
+    this.totalFiles = const Value.absent(),
+    this.totalSize = const Value.absent(),
+    this.filesToBackup = const Value.absent(),
+    this.skippedFiles = const Value.absent(),
+    this.error = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       folderId = Value(folderId),
+       createdAt = Value(createdAt),
+       status = Value(status),
+       progress = Value(progress);
+  static Insertable<BackupJob> custom({
+    Expression<String>? id,
+    Expression<String>? deviceUuid,
+    Expression<String>? folderUuid,
+    Expression<int>? folderId,
+    Expression<String>? destinationUuid,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? startedTime,
+    Expression<DateTime>? completedTime,
+    Expression<String>? status,
+    Expression<double>? progress,
+    Expression<int>? totalFiles,
+    Expression<int>? totalSize,
+    Expression<int>? filesToBackup,
+    Expression<int>? skippedFiles,
+    Expression<String>? error,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (deviceUuid != null) 'device_uuid': deviceUuid,
+      if (folderUuid != null) 'folder_uuid': folderUuid,
+      if (folderId != null) 'folder_id': folderId,
+      if (destinationUuid != null) 'destination_uuid': destinationUuid,
+      if (createdAt != null) 'created_at': createdAt,
+      if (startedTime != null) 'started_time': startedTime,
+      if (completedTime != null) 'completed_time': completedTime,
+      if (status != null) 'status': status,
+      if (progress != null) 'progress': progress,
+      if (totalFiles != null) 'total_files': totalFiles,
+      if (totalSize != null) 'total_size': totalSize,
+      if (filesToBackup != null) 'files_to_backup': filesToBackup,
+      if (skippedFiles != null) 'skipped_files': skippedFiles,
+      if (error != null) 'error': error,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BackupJobsCompanion copyWith({
+    Value<String>? id,
+    Value<String?>? deviceUuid,
+    Value<String?>? folderUuid,
+    Value<int>? folderId,
+    Value<String?>? destinationUuid,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? startedTime,
+    Value<DateTime?>? completedTime,
+    Value<String>? status,
+    Value<double>? progress,
+    Value<int>? totalFiles,
+    Value<int>? totalSize,
+    Value<int>? filesToBackup,
+    Value<int>? skippedFiles,
+    Value<String?>? error,
+    Value<int>? rowid,
+  }) {
+    return BackupJobsCompanion(
+      id: id ?? this.id,
+      deviceUuid: deviceUuid ?? this.deviceUuid,
+      folderUuid: folderUuid ?? this.folderUuid,
+      folderId: folderId ?? this.folderId,
+      destinationUuid: destinationUuid ?? this.destinationUuid,
+      createdAt: createdAt ?? this.createdAt,
+      startedTime: startedTime ?? this.startedTime,
+      completedTime: completedTime ?? this.completedTime,
+      status: status ?? this.status,
+      progress: progress ?? this.progress,
+      totalFiles: totalFiles ?? this.totalFiles,
+      totalSize: totalSize ?? this.totalSize,
+      filesToBackup: filesToBackup ?? this.filesToBackup,
+      skippedFiles: skippedFiles ?? this.skippedFiles,
+      error: error ?? this.error,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (deviceUuid.present) {
+      map['device_uuid'] = Variable<String>(deviceUuid.value);
+    }
+    if (folderUuid.present) {
+      map['folder_uuid'] = Variable<String>(folderUuid.value);
+    }
+    if (folderId.present) {
+      map['folder_id'] = Variable<int>(folderId.value);
+    }
+    if (destinationUuid.present) {
+      map['destination_uuid'] = Variable<String>(destinationUuid.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (startedTime.present) {
+      map['started_time'] = Variable<DateTime>(startedTime.value);
+    }
+    if (completedTime.present) {
+      map['completed_time'] = Variable<DateTime>(completedTime.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (progress.present) {
+      map['progress'] = Variable<double>(progress.value);
+    }
+    if (totalFiles.present) {
+      map['total_files'] = Variable<int>(totalFiles.value);
+    }
+    if (totalSize.present) {
+      map['total_size'] = Variable<int>(totalSize.value);
+    }
+    if (filesToBackup.present) {
+      map['files_to_backup'] = Variable<int>(filesToBackup.value);
+    }
+    if (skippedFiles.present) {
+      map['skipped_files'] = Variable<int>(skippedFiles.value);
+    }
+    if (error.present) {
+      map['error'] = Variable<String>(error.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BackupJobsCompanion(')
+          ..write('id: $id, ')
+          ..write('deviceUuid: $deviceUuid, ')
+          ..write('folderUuid: $folderUuid, ')
+          ..write('folderId: $folderId, ')
+          ..write('destinationUuid: $destinationUuid, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('startedTime: $startedTime, ')
+          ..write('completedTime: $completedTime, ')
+          ..write('status: $status, ')
+          ..write('progress: $progress, ')
+          ..write('totalFiles: $totalFiles, ')
+          ..write('totalSize: $totalSize, ')
+          ..write('filesToBackup: $filesToBackup, ')
+          ..write('skippedFiles: $skippedFiles, ')
+          ..write('error: $error, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FileTransfersTable extends FileTransfers
+    with TableInfo<$FileTransfersTable, FileTransfer> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FileTransfersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sessionIdMeta = const VerificationMeta(
+    'sessionId',
+  );
+  @override
+  late final GeneratedColumn<String> sessionId = GeneratedColumn<String>(
+    'session_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fileNameMeta = const VerificationMeta(
+    'fileName',
+  );
+  @override
+  late final GeneratedColumn<String> fileName = GeneratedColumn<String>(
+    'file_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _relativePathMeta = const VerificationMeta(
+    'relativePath',
+  );
+  @override
+  late final GeneratedColumn<String> relativePath = GeneratedColumn<String>(
+    'relative_path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fileSizeMeta = const VerificationMeta(
+    'fileSize',
+  );
+  @override
+  late final GeneratedColumn<int> fileSize = GeneratedColumn<int>(
+    'file_size',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _hashMeta = const VerificationMeta('hash');
+  @override
+  late final GeneratedColumn<String> hash = GeneratedColumn<String>(
+    'hash',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _transferredBytesMeta = const VerificationMeta(
+    'transferredBytes',
+  );
+  @override
+  late final GeneratedColumn<int> transferredBytes = GeneratedColumn<int>(
+    'transferred_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startedAtMeta = const VerificationMeta(
+    'startedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startedAt = GeneratedColumn<DateTime>(
+    'started_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _completedAtMeta = const VerificationMeta(
+    'completedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> completedAt = GeneratedColumn<DateTime>(
+    'completed_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    sessionId,
+    fileName,
+    relativePath,
+    fileSize,
+    hash,
+    status,
+    transferredBytes,
+    startedAt,
+    completedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'file_transfers';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FileTransfer> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('session_id')) {
+      context.handle(
+        _sessionIdMeta,
+        sessionId.isAcceptableOrUnknown(data['session_id']!, _sessionIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sessionIdMeta);
+    }
+    if (data.containsKey('file_name')) {
+      context.handle(
+        _fileNameMeta,
+        fileName.isAcceptableOrUnknown(data['file_name']!, _fileNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fileNameMeta);
+    }
+    if (data.containsKey('relative_path')) {
+      context.handle(
+        _relativePathMeta,
+        relativePath.isAcceptableOrUnknown(
+          data['relative_path']!,
+          _relativePathMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_relativePathMeta);
+    }
+    if (data.containsKey('file_size')) {
+      context.handle(
+        _fileSizeMeta,
+        fileSize.isAcceptableOrUnknown(data['file_size']!, _fileSizeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fileSizeMeta);
+    }
+    if (data.containsKey('hash')) {
+      context.handle(
+        _hashMeta,
+        hash.isAcceptableOrUnknown(data['hash']!, _hashMeta),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('transferred_bytes')) {
+      context.handle(
+        _transferredBytesMeta,
+        transferredBytes.isAcceptableOrUnknown(
+          data['transferred_bytes']!,
+          _transferredBytesMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_transferredBytesMeta);
+    }
+    if (data.containsKey('started_at')) {
+      context.handle(
+        _startedAtMeta,
+        startedAt.isAcceptableOrUnknown(data['started_at']!, _startedAtMeta),
+      );
+    }
+    if (data.containsKey('completed_at')) {
+      context.handle(
+        _completedAtMeta,
+        completedAt.isAcceptableOrUnknown(
+          data['completed_at']!,
+          _completedAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FileTransfer map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FileTransfer(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      sessionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}session_id'],
+      )!,
+      fileName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_name'],
+      )!,
+      relativePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}relative_path'],
+      )!,
+      fileSize: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}file_size'],
+      )!,
+      hash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}hash'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      transferredBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}transferred_bytes'],
+      )!,
+      startedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}started_at'],
+      ),
+      completedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}completed_at'],
+      ),
+    );
+  }
+
+  @override
+  $FileTransfersTable createAlias(String alias) {
+    return $FileTransfersTable(attachedDatabase, alias);
+  }
+}
+
+class FileTransfer extends DataClass implements Insertable<FileTransfer> {
+  final String id;
+  final String sessionId;
+  final String fileName;
+  final String relativePath;
+  final int fileSize;
+  final String? hash;
+  final String status;
+  final int transferredBytes;
+  final DateTime? startedAt;
+  final DateTime? completedAt;
+  const FileTransfer({
+    required this.id,
+    required this.sessionId,
+    required this.fileName,
+    required this.relativePath,
+    required this.fileSize,
+    this.hash,
+    required this.status,
+    required this.transferredBytes,
+    this.startedAt,
+    this.completedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['session_id'] = Variable<String>(sessionId);
+    map['file_name'] = Variable<String>(fileName);
+    map['relative_path'] = Variable<String>(relativePath);
+    map['file_size'] = Variable<int>(fileSize);
+    if (!nullToAbsent || hash != null) {
+      map['hash'] = Variable<String>(hash);
+    }
+    map['status'] = Variable<String>(status);
+    map['transferred_bytes'] = Variable<int>(transferredBytes);
+    if (!nullToAbsent || startedAt != null) {
+      map['started_at'] = Variable<DateTime>(startedAt);
+    }
+    if (!nullToAbsent || completedAt != null) {
+      map['completed_at'] = Variable<DateTime>(completedAt);
+    }
+    return map;
+  }
+
+  FileTransfersCompanion toCompanion(bool nullToAbsent) {
+    return FileTransfersCompanion(
+      id: Value(id),
+      sessionId: Value(sessionId),
+      fileName: Value(fileName),
+      relativePath: Value(relativePath),
+      fileSize: Value(fileSize),
+      hash: hash == null && nullToAbsent ? const Value.absent() : Value(hash),
+      status: Value(status),
+      transferredBytes: Value(transferredBytes),
+      startedAt: startedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(startedAt),
+      completedAt: completedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(completedAt),
+    );
+  }
+
+  factory FileTransfer.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FileTransfer(
+      id: serializer.fromJson<String>(json['id']),
+      sessionId: serializer.fromJson<String>(json['sessionId']),
+      fileName: serializer.fromJson<String>(json['fileName']),
+      relativePath: serializer.fromJson<String>(json['relativePath']),
+      fileSize: serializer.fromJson<int>(json['fileSize']),
+      hash: serializer.fromJson<String?>(json['hash']),
+      status: serializer.fromJson<String>(json['status']),
+      transferredBytes: serializer.fromJson<int>(json['transferredBytes']),
+      startedAt: serializer.fromJson<DateTime?>(json['startedAt']),
+      completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'sessionId': serializer.toJson<String>(sessionId),
+      'fileName': serializer.toJson<String>(fileName),
+      'relativePath': serializer.toJson<String>(relativePath),
+      'fileSize': serializer.toJson<int>(fileSize),
+      'hash': serializer.toJson<String?>(hash),
+      'status': serializer.toJson<String>(status),
+      'transferredBytes': serializer.toJson<int>(transferredBytes),
+      'startedAt': serializer.toJson<DateTime?>(startedAt),
+      'completedAt': serializer.toJson<DateTime?>(completedAt),
+    };
+  }
+
+  FileTransfer copyWith({
+    String? id,
+    String? sessionId,
+    String? fileName,
+    String? relativePath,
+    int? fileSize,
+    Value<String?> hash = const Value.absent(),
+    String? status,
+    int? transferredBytes,
+    Value<DateTime?> startedAt = const Value.absent(),
+    Value<DateTime?> completedAt = const Value.absent(),
+  }) => FileTransfer(
+    id: id ?? this.id,
+    sessionId: sessionId ?? this.sessionId,
+    fileName: fileName ?? this.fileName,
+    relativePath: relativePath ?? this.relativePath,
+    fileSize: fileSize ?? this.fileSize,
+    hash: hash.present ? hash.value : this.hash,
+    status: status ?? this.status,
+    transferredBytes: transferredBytes ?? this.transferredBytes,
+    startedAt: startedAt.present ? startedAt.value : this.startedAt,
+    completedAt: completedAt.present ? completedAt.value : this.completedAt,
+  );
+  FileTransfer copyWithCompanion(FileTransfersCompanion data) {
+    return FileTransfer(
+      id: data.id.present ? data.id.value : this.id,
+      sessionId: data.sessionId.present ? data.sessionId.value : this.sessionId,
+      fileName: data.fileName.present ? data.fileName.value : this.fileName,
+      relativePath: data.relativePath.present
+          ? data.relativePath.value
+          : this.relativePath,
+      fileSize: data.fileSize.present ? data.fileSize.value : this.fileSize,
+      hash: data.hash.present ? data.hash.value : this.hash,
+      status: data.status.present ? data.status.value : this.status,
+      transferredBytes: data.transferredBytes.present
+          ? data.transferredBytes.value
+          : this.transferredBytes,
+      startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
+      completedAt: data.completedAt.present
+          ? data.completedAt.value
+          : this.completedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FileTransfer(')
+          ..write('id: $id, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('fileName: $fileName, ')
+          ..write('relativePath: $relativePath, ')
+          ..write('fileSize: $fileSize, ')
+          ..write('hash: $hash, ')
+          ..write('status: $status, ')
+          ..write('transferredBytes: $transferredBytes, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('completedAt: $completedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    sessionId,
+    fileName,
+    relativePath,
+    fileSize,
+    hash,
+    status,
+    transferredBytes,
+    startedAt,
+    completedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FileTransfer &&
+          other.id == this.id &&
+          other.sessionId == this.sessionId &&
+          other.fileName == this.fileName &&
+          other.relativePath == this.relativePath &&
+          other.fileSize == this.fileSize &&
+          other.hash == this.hash &&
+          other.status == this.status &&
+          other.transferredBytes == this.transferredBytes &&
+          other.startedAt == this.startedAt &&
+          other.completedAt == this.completedAt);
+}
+
+class FileTransfersCompanion extends UpdateCompanion<FileTransfer> {
+  final Value<String> id;
+  final Value<String> sessionId;
+  final Value<String> fileName;
+  final Value<String> relativePath;
+  final Value<int> fileSize;
+  final Value<String?> hash;
+  final Value<String> status;
+  final Value<int> transferredBytes;
+  final Value<DateTime?> startedAt;
+  final Value<DateTime?> completedAt;
+  final Value<int> rowid;
+  const FileTransfersCompanion({
+    this.id = const Value.absent(),
+    this.sessionId = const Value.absent(),
+    this.fileName = const Value.absent(),
+    this.relativePath = const Value.absent(),
+    this.fileSize = const Value.absent(),
+    this.hash = const Value.absent(),
+    this.status = const Value.absent(),
+    this.transferredBytes = const Value.absent(),
+    this.startedAt = const Value.absent(),
+    this.completedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FileTransfersCompanion.insert({
+    required String id,
+    required String sessionId,
+    required String fileName,
+    required String relativePath,
+    required int fileSize,
+    this.hash = const Value.absent(),
+    required String status,
+    required int transferredBytes,
+    this.startedAt = const Value.absent(),
+    this.completedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       sessionId = Value(sessionId),
+       fileName = Value(fileName),
+       relativePath = Value(relativePath),
+       fileSize = Value(fileSize),
+       status = Value(status),
+       transferredBytes = Value(transferredBytes);
+  static Insertable<FileTransfer> custom({
+    Expression<String>? id,
+    Expression<String>? sessionId,
+    Expression<String>? fileName,
+    Expression<String>? relativePath,
+    Expression<int>? fileSize,
+    Expression<String>? hash,
+    Expression<String>? status,
+    Expression<int>? transferredBytes,
+    Expression<DateTime>? startedAt,
+    Expression<DateTime>? completedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (sessionId != null) 'session_id': sessionId,
+      if (fileName != null) 'file_name': fileName,
+      if (relativePath != null) 'relative_path': relativePath,
+      if (fileSize != null) 'file_size': fileSize,
+      if (hash != null) 'hash': hash,
+      if (status != null) 'status': status,
+      if (transferredBytes != null) 'transferred_bytes': transferredBytes,
+      if (startedAt != null) 'started_at': startedAt,
+      if (completedAt != null) 'completed_at': completedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FileTransfersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? sessionId,
+    Value<String>? fileName,
+    Value<String>? relativePath,
+    Value<int>? fileSize,
+    Value<String?>? hash,
+    Value<String>? status,
+    Value<int>? transferredBytes,
+    Value<DateTime?>? startedAt,
+    Value<DateTime?>? completedAt,
+    Value<int>? rowid,
+  }) {
+    return FileTransfersCompanion(
+      id: id ?? this.id,
+      sessionId: sessionId ?? this.sessionId,
+      fileName: fileName ?? this.fileName,
+      relativePath: relativePath ?? this.relativePath,
+      fileSize: fileSize ?? this.fileSize,
+      hash: hash ?? this.hash,
+      status: status ?? this.status,
+      transferredBytes: transferredBytes ?? this.transferredBytes,
+      startedAt: startedAt ?? this.startedAt,
+      completedAt: completedAt ?? this.completedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (sessionId.present) {
+      map['session_id'] = Variable<String>(sessionId.value);
+    }
+    if (fileName.present) {
+      map['file_name'] = Variable<String>(fileName.value);
+    }
+    if (relativePath.present) {
+      map['relative_path'] = Variable<String>(relativePath.value);
+    }
+    if (fileSize.present) {
+      map['file_size'] = Variable<int>(fileSize.value);
+    }
+    if (hash.present) {
+      map['hash'] = Variable<String>(hash.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (transferredBytes.present) {
+      map['transferred_bytes'] = Variable<int>(transferredBytes.value);
+    }
+    if (startedAt.present) {
+      map['started_at'] = Variable<DateTime>(startedAt.value);
+    }
+    if (completedAt.present) {
+      map['completed_at'] = Variable<DateTime>(completedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FileTransfersCompanion(')
+          ..write('id: $id, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('fileName: $fileName, ')
+          ..write('relativePath: $relativePath, ')
+          ..write('fileSize: $fileSize, ')
+          ..write('hash: $hash, ')
+          ..write('status: $status, ')
+          ..write('transferredBytes: $transferredBytes, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('completedAt: $completedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4223,6 +6045,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $PairedDevicesTable pairedDevices = $PairedDevicesTable(this);
+  late final $BackupJobsTable backupJobs = $BackupJobsTable(this);
+  late final $FileTransfersTable fileTransfers = $FileTransfersTable(this);
   late final Index idxBackupFilesName = Index(
     'idx_backup_files_name',
     'CREATE INDEX idx_backup_files_name ON backup_files (file_name)',
@@ -4248,6 +6072,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final PairedDevicesDao pairedDevicesDao = PairedDevicesDao(
     this as AppDatabase,
   );
+  late final BackupJobsDao backupJobsDao = BackupJobsDao(this as AppDatabase);
+  late final FileTransfersDao fileTransfersDao = FileTransfersDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4261,6 +6089,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     backupHistory,
     searchHistories,
     pairedDevices,
+    backupJobs,
+    fileTransfers,
     idxBackupFilesName,
     idxBackupFilesSha,
   ];
@@ -4301,6 +6131,12 @@ typedef $$BackupFoldersTableCreateCompanionBuilder =
       Value<String> backupInterval,
       Value<DateTime?> lastBackupAt,
       Value<DateTime?> nextBackupAt,
+      Value<String?> destinationType,
+      Value<String?> deviceUuid,
+      Value<String?> deviceName,
+      Value<String?> remoteFolderId,
+      Value<String?> remoteFolderPath,
+      Value<DateTime?> lastVerified,
     });
 typedef $$BackupFoldersTableUpdateCompanionBuilder =
     BackupFoldersCompanion Function({
@@ -4313,6 +6149,12 @@ typedef $$BackupFoldersTableUpdateCompanionBuilder =
       Value<String> backupInterval,
       Value<DateTime?> lastBackupAt,
       Value<DateTime?> nextBackupAt,
+      Value<String?> destinationType,
+      Value<String?> deviceUuid,
+      Value<String?> deviceName,
+      Value<String?> remoteFolderId,
+      Value<String?> remoteFolderPath,
+      Value<DateTime?> lastVerified,
     });
 
 final class $$BackupFoldersTableReferences
@@ -4411,6 +6253,36 @@ class $$BackupFoldersTableFilterComposer
 
   ColumnFilters<DateTime> get nextBackupAt => $composableBuilder(
     column: $table.nextBackupAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get destinationType => $composableBuilder(
+    column: $table.destinationType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceUuid => $composableBuilder(
+    column: $table.deviceUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceName => $composableBuilder(
+    column: $table.deviceName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get remoteFolderId => $composableBuilder(
+    column: $table.remoteFolderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get remoteFolderPath => $composableBuilder(
+    column: $table.remoteFolderPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastVerified => $composableBuilder(
+    column: $table.lastVerified,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4518,6 +6390,36 @@ class $$BackupFoldersTableOrderingComposer
     column: $table.nextBackupAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get destinationType => $composableBuilder(
+    column: $table.destinationType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceUuid => $composableBuilder(
+    column: $table.deviceUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceName => $composableBuilder(
+    column: $table.deviceName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get remoteFolderId => $composableBuilder(
+    column: $table.remoteFolderId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get remoteFolderPath => $composableBuilder(
+    column: $table.remoteFolderPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastVerified => $composableBuilder(
+    column: $table.lastVerified,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$BackupFoldersTableAnnotationComposer
@@ -4563,6 +6465,36 @@ class $$BackupFoldersTableAnnotationComposer
 
   GeneratedColumn<DateTime> get nextBackupAt => $composableBuilder(
     column: $table.nextBackupAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get destinationType => $composableBuilder(
+    column: $table.destinationType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get deviceUuid => $composableBuilder(
+    column: $table.deviceUuid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get deviceName => $composableBuilder(
+    column: $table.deviceName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get remoteFolderId => $composableBuilder(
+    column: $table.remoteFolderId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get remoteFolderPath => $composableBuilder(
+    column: $table.remoteFolderPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastVerified => $composableBuilder(
+    column: $table.lastVerified,
     builder: (column) => column,
   );
 
@@ -4654,6 +6586,12 @@ class $$BackupFoldersTableTableManager
                 Value<String> backupInterval = const Value.absent(),
                 Value<DateTime?> lastBackupAt = const Value.absent(),
                 Value<DateTime?> nextBackupAt = const Value.absent(),
+                Value<String?> destinationType = const Value.absent(),
+                Value<String?> deviceUuid = const Value.absent(),
+                Value<String?> deviceName = const Value.absent(),
+                Value<String?> remoteFolderId = const Value.absent(),
+                Value<String?> remoteFolderPath = const Value.absent(),
+                Value<DateTime?> lastVerified = const Value.absent(),
               }) => BackupFoldersCompanion(
                 id: id,
                 name: name,
@@ -4664,6 +6602,12 @@ class $$BackupFoldersTableTableManager
                 backupInterval: backupInterval,
                 lastBackupAt: lastBackupAt,
                 nextBackupAt: nextBackupAt,
+                destinationType: destinationType,
+                deviceUuid: deviceUuid,
+                deviceName: deviceName,
+                remoteFolderId: remoteFolderId,
+                remoteFolderPath: remoteFolderPath,
+                lastVerified: lastVerified,
               ),
           createCompanionCallback:
               ({
@@ -4676,6 +6620,12 @@ class $$BackupFoldersTableTableManager
                 Value<String> backupInterval = const Value.absent(),
                 Value<DateTime?> lastBackupAt = const Value.absent(),
                 Value<DateTime?> nextBackupAt = const Value.absent(),
+                Value<String?> destinationType = const Value.absent(),
+                Value<String?> deviceUuid = const Value.absent(),
+                Value<String?> deviceName = const Value.absent(),
+                Value<String?> remoteFolderId = const Value.absent(),
+                Value<String?> remoteFolderPath = const Value.absent(),
+                Value<DateTime?> lastVerified = const Value.absent(),
               }) => BackupFoldersCompanion.insert(
                 id: id,
                 name: name,
@@ -4686,6 +6636,12 @@ class $$BackupFoldersTableTableManager
                 backupInterval: backupInterval,
                 lastBackupAt: lastBackupAt,
                 nextBackupAt: nextBackupAt,
+                destinationType: destinationType,
+                deviceUuid: deviceUuid,
+                deviceName: deviceName,
+                remoteFolderId: remoteFolderId,
+                remoteFolderPath: remoteFolderPath,
+                lastVerified: lastVerified,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -7042,6 +8998,710 @@ typedef $$PairedDevicesTableProcessedTableManager =
       PairedDevice,
       PrefetchHooks Function()
     >;
+typedef $$BackupJobsTableCreateCompanionBuilder =
+    BackupJobsCompanion Function({
+      required String id,
+      Value<String?> deviceUuid,
+      Value<String?> folderUuid,
+      required int folderId,
+      Value<String?> destinationUuid,
+      required DateTime createdAt,
+      Value<DateTime?> startedTime,
+      Value<DateTime?> completedTime,
+      required String status,
+      required double progress,
+      Value<int> totalFiles,
+      Value<int> totalSize,
+      Value<int> filesToBackup,
+      Value<int> skippedFiles,
+      Value<String?> error,
+      Value<int> rowid,
+    });
+typedef $$BackupJobsTableUpdateCompanionBuilder =
+    BackupJobsCompanion Function({
+      Value<String> id,
+      Value<String?> deviceUuid,
+      Value<String?> folderUuid,
+      Value<int> folderId,
+      Value<String?> destinationUuid,
+      Value<DateTime> createdAt,
+      Value<DateTime?> startedTime,
+      Value<DateTime?> completedTime,
+      Value<String> status,
+      Value<double> progress,
+      Value<int> totalFiles,
+      Value<int> totalSize,
+      Value<int> filesToBackup,
+      Value<int> skippedFiles,
+      Value<String?> error,
+      Value<int> rowid,
+    });
+
+class $$BackupJobsTableFilterComposer
+    extends Composer<_$AppDatabase, $BackupJobsTable> {
+  $$BackupJobsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceUuid => $composableBuilder(
+    column: $table.deviceUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get folderUuid => $composableBuilder(
+    column: $table.folderUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get folderId => $composableBuilder(
+    column: $table.folderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get destinationUuid => $composableBuilder(
+    column: $table.destinationUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startedTime => $composableBuilder(
+    column: $table.startedTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get completedTime => $composableBuilder(
+    column: $table.completedTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get progress => $composableBuilder(
+    column: $table.progress,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get totalFiles => $composableBuilder(
+    column: $table.totalFiles,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get totalSize => $composableBuilder(
+    column: $table.totalSize,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get filesToBackup => $composableBuilder(
+    column: $table.filesToBackup,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get skippedFiles => $composableBuilder(
+    column: $table.skippedFiles,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get error => $composableBuilder(
+    column: $table.error,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$BackupJobsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BackupJobsTable> {
+  $$BackupJobsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceUuid => $composableBuilder(
+    column: $table.deviceUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get folderUuid => $composableBuilder(
+    column: $table.folderUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get folderId => $composableBuilder(
+    column: $table.folderId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get destinationUuid => $composableBuilder(
+    column: $table.destinationUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startedTime => $composableBuilder(
+    column: $table.startedTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get completedTime => $composableBuilder(
+    column: $table.completedTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get progress => $composableBuilder(
+    column: $table.progress,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get totalFiles => $composableBuilder(
+    column: $table.totalFiles,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get totalSize => $composableBuilder(
+    column: $table.totalSize,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get filesToBackup => $composableBuilder(
+    column: $table.filesToBackup,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get skippedFiles => $composableBuilder(
+    column: $table.skippedFiles,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get error => $composableBuilder(
+    column: $table.error,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$BackupJobsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BackupJobsTable> {
+  $$BackupJobsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get deviceUuid => $composableBuilder(
+    column: $table.deviceUuid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get folderUuid => $composableBuilder(
+    column: $table.folderUuid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get folderId =>
+      $composableBuilder(column: $table.folderId, builder: (column) => column);
+
+  GeneratedColumn<String> get destinationUuid => $composableBuilder(
+    column: $table.destinationUuid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get startedTime => $composableBuilder(
+    column: $table.startedTime,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get completedTime => $composableBuilder(
+    column: $table.completedTime,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<double> get progress =>
+      $composableBuilder(column: $table.progress, builder: (column) => column);
+
+  GeneratedColumn<int> get totalFiles => $composableBuilder(
+    column: $table.totalFiles,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get totalSize =>
+      $composableBuilder(column: $table.totalSize, builder: (column) => column);
+
+  GeneratedColumn<int> get filesToBackup => $composableBuilder(
+    column: $table.filesToBackup,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get skippedFiles => $composableBuilder(
+    column: $table.skippedFiles,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get error =>
+      $composableBuilder(column: $table.error, builder: (column) => column);
+}
+
+class $$BackupJobsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BackupJobsTable,
+          BackupJob,
+          $$BackupJobsTableFilterComposer,
+          $$BackupJobsTableOrderingComposer,
+          $$BackupJobsTableAnnotationComposer,
+          $$BackupJobsTableCreateCompanionBuilder,
+          $$BackupJobsTableUpdateCompanionBuilder,
+          (
+            BackupJob,
+            BaseReferences<_$AppDatabase, $BackupJobsTable, BackupJob>,
+          ),
+          BackupJob,
+          PrefetchHooks Function()
+        > {
+  $$BackupJobsTableTableManager(_$AppDatabase db, $BackupJobsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BackupJobsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BackupJobsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BackupJobsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> deviceUuid = const Value.absent(),
+                Value<String?> folderUuid = const Value.absent(),
+                Value<int> folderId = const Value.absent(),
+                Value<String?> destinationUuid = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> startedTime = const Value.absent(),
+                Value<DateTime?> completedTime = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<double> progress = const Value.absent(),
+                Value<int> totalFiles = const Value.absent(),
+                Value<int> totalSize = const Value.absent(),
+                Value<int> filesToBackup = const Value.absent(),
+                Value<int> skippedFiles = const Value.absent(),
+                Value<String?> error = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BackupJobsCompanion(
+                id: id,
+                deviceUuid: deviceUuid,
+                folderUuid: folderUuid,
+                folderId: folderId,
+                destinationUuid: destinationUuid,
+                createdAt: createdAt,
+                startedTime: startedTime,
+                completedTime: completedTime,
+                status: status,
+                progress: progress,
+                totalFiles: totalFiles,
+                totalSize: totalSize,
+                filesToBackup: filesToBackup,
+                skippedFiles: skippedFiles,
+                error: error,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String?> deviceUuid = const Value.absent(),
+                Value<String?> folderUuid = const Value.absent(),
+                required int folderId,
+                Value<String?> destinationUuid = const Value.absent(),
+                required DateTime createdAt,
+                Value<DateTime?> startedTime = const Value.absent(),
+                Value<DateTime?> completedTime = const Value.absent(),
+                required String status,
+                required double progress,
+                Value<int> totalFiles = const Value.absent(),
+                Value<int> totalSize = const Value.absent(),
+                Value<int> filesToBackup = const Value.absent(),
+                Value<int> skippedFiles = const Value.absent(),
+                Value<String?> error = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BackupJobsCompanion.insert(
+                id: id,
+                deviceUuid: deviceUuid,
+                folderUuid: folderUuid,
+                folderId: folderId,
+                destinationUuid: destinationUuid,
+                createdAt: createdAt,
+                startedTime: startedTime,
+                completedTime: completedTime,
+                status: status,
+                progress: progress,
+                totalFiles: totalFiles,
+                totalSize: totalSize,
+                filesToBackup: filesToBackup,
+                skippedFiles: skippedFiles,
+                error: error,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$BackupJobsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BackupJobsTable,
+      BackupJob,
+      $$BackupJobsTableFilterComposer,
+      $$BackupJobsTableOrderingComposer,
+      $$BackupJobsTableAnnotationComposer,
+      $$BackupJobsTableCreateCompanionBuilder,
+      $$BackupJobsTableUpdateCompanionBuilder,
+      (BackupJob, BaseReferences<_$AppDatabase, $BackupJobsTable, BackupJob>),
+      BackupJob,
+      PrefetchHooks Function()
+    >;
+typedef $$FileTransfersTableCreateCompanionBuilder =
+    FileTransfersCompanion Function({
+      required String id,
+      required String sessionId,
+      required String fileName,
+      required String relativePath,
+      required int fileSize,
+      Value<String?> hash,
+      required String status,
+      required int transferredBytes,
+      Value<DateTime?> startedAt,
+      Value<DateTime?> completedAt,
+      Value<int> rowid,
+    });
+typedef $$FileTransfersTableUpdateCompanionBuilder =
+    FileTransfersCompanion Function({
+      Value<String> id,
+      Value<String> sessionId,
+      Value<String> fileName,
+      Value<String> relativePath,
+      Value<int> fileSize,
+      Value<String?> hash,
+      Value<String> status,
+      Value<int> transferredBytes,
+      Value<DateTime?> startedAt,
+      Value<DateTime?> completedAt,
+      Value<int> rowid,
+    });
+
+class $$FileTransfersTableFilterComposer
+    extends Composer<_$AppDatabase, $FileTransfersTable> {
+  $$FileTransfersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fileName => $composableBuilder(
+    column: $table.fileName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get relativePath => $composableBuilder(
+    column: $table.relativePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get fileSize => $composableBuilder(
+    column: $table.fileSize,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get hash => $composableBuilder(
+    column: $table.hash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get transferredBytes => $composableBuilder(
+    column: $table.transferredBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$FileTransfersTableOrderingComposer
+    extends Composer<_$AppDatabase, $FileTransfersTable> {
+  $$FileTransfersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fileName => $composableBuilder(
+    column: $table.fileName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get relativePath => $composableBuilder(
+    column: $table.relativePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get fileSize => $composableBuilder(
+    column: $table.fileSize,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get hash => $composableBuilder(
+    column: $table.hash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get transferredBytes => $composableBuilder(
+    column: $table.transferredBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FileTransfersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FileTransfersTable> {
+  $$FileTransfersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get sessionId =>
+      $composableBuilder(column: $table.sessionId, builder: (column) => column);
+
+  GeneratedColumn<String> get fileName =>
+      $composableBuilder(column: $table.fileName, builder: (column) => column);
+
+  GeneratedColumn<String> get relativePath => $composableBuilder(
+    column: $table.relativePath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get fileSize =>
+      $composableBuilder(column: $table.fileSize, builder: (column) => column);
+
+  GeneratedColumn<String> get hash =>
+      $composableBuilder(column: $table.hash, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get transferredBytes => $composableBuilder(
+    column: $table.transferredBytes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get startedAt =>
+      $composableBuilder(column: $table.startedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$FileTransfersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FileTransfersTable,
+          FileTransfer,
+          $$FileTransfersTableFilterComposer,
+          $$FileTransfersTableOrderingComposer,
+          $$FileTransfersTableAnnotationComposer,
+          $$FileTransfersTableCreateCompanionBuilder,
+          $$FileTransfersTableUpdateCompanionBuilder,
+          (
+            FileTransfer,
+            BaseReferences<_$AppDatabase, $FileTransfersTable, FileTransfer>,
+          ),
+          FileTransfer,
+          PrefetchHooks Function()
+        > {
+  $$FileTransfersTableTableManager(_$AppDatabase db, $FileTransfersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FileTransfersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FileTransfersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FileTransfersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> sessionId = const Value.absent(),
+                Value<String> fileName = const Value.absent(),
+                Value<String> relativePath = const Value.absent(),
+                Value<int> fileSize = const Value.absent(),
+                Value<String?> hash = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> transferredBytes = const Value.absent(),
+                Value<DateTime?> startedAt = const Value.absent(),
+                Value<DateTime?> completedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FileTransfersCompanion(
+                id: id,
+                sessionId: sessionId,
+                fileName: fileName,
+                relativePath: relativePath,
+                fileSize: fileSize,
+                hash: hash,
+                status: status,
+                transferredBytes: transferredBytes,
+                startedAt: startedAt,
+                completedAt: completedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String sessionId,
+                required String fileName,
+                required String relativePath,
+                required int fileSize,
+                Value<String?> hash = const Value.absent(),
+                required String status,
+                required int transferredBytes,
+                Value<DateTime?> startedAt = const Value.absent(),
+                Value<DateTime?> completedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FileTransfersCompanion.insert(
+                id: id,
+                sessionId: sessionId,
+                fileName: fileName,
+                relativePath: relativePath,
+                fileSize: fileSize,
+                hash: hash,
+                status: status,
+                transferredBytes: transferredBytes,
+                startedAt: startedAt,
+                completedAt: completedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FileTransfersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FileTransfersTable,
+      FileTransfer,
+      $$FileTransfersTableFilterComposer,
+      $$FileTransfersTableOrderingComposer,
+      $$FileTransfersTableAnnotationComposer,
+      $$FileTransfersTableCreateCompanionBuilder,
+      $$FileTransfersTableUpdateCompanionBuilder,
+      (
+        FileTransfer,
+        BaseReferences<_$AppDatabase, $FileTransfersTable, FileTransfer>,
+      ),
+      FileTransfer,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -7062,6 +9722,10 @@ class $AppDatabaseManager {
       $$SearchHistoriesTableTableManager(_db, _db.searchHistories);
   $$PairedDevicesTableTableManager get pairedDevices =>
       $$PairedDevicesTableTableManager(_db, _db.pairedDevices);
+  $$BackupJobsTableTableManager get backupJobs =>
+      $$BackupJobsTableTableManager(_db, _db.backupJobs);
+  $$FileTransfersTableTableManager get fileTransfers =>
+      $$FileTransfersTableTableManager(_db, _db.fileTransfers);
 }
 
 mixin _$BackupFoldersDaoMixin on DatabaseAccessor<AppDatabase> {
@@ -7158,4 +9822,28 @@ class PairedDevicesDaoManager {
   PairedDevicesDaoManager(this._db);
   $$PairedDevicesTableTableManager get pairedDevices =>
       $$PairedDevicesTableTableManager(_db.attachedDatabase, _db.pairedDevices);
+}
+
+mixin _$BackupJobsDaoMixin on DatabaseAccessor<AppDatabase> {
+  $BackupJobsTable get backupJobs => attachedDatabase.backupJobs;
+  BackupJobsDaoManager get managers => BackupJobsDaoManager(this);
+}
+
+class BackupJobsDaoManager {
+  final _$BackupJobsDaoMixin _db;
+  BackupJobsDaoManager(this._db);
+  $$BackupJobsTableTableManager get backupJobs =>
+      $$BackupJobsTableTableManager(_db.attachedDatabase, _db.backupJobs);
+}
+
+mixin _$FileTransfersDaoMixin on DatabaseAccessor<AppDatabase> {
+  $FileTransfersTable get fileTransfers => attachedDatabase.fileTransfers;
+  FileTransfersDaoManager get managers => FileTransfersDaoManager(this);
+}
+
+class FileTransfersDaoManager {
+  final _$FileTransfersDaoMixin _db;
+  FileTransfersDaoManager(this._db);
+  $$FileTransfersTableTableManager get fileTransfers =>
+      $$FileTransfersTableTableManager(_db.attachedDatabase, _db.fileTransfers);
 }

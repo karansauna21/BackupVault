@@ -25,6 +25,8 @@ import 'package:backup_vault/core/services/version_manager.dart';
 import 'package:backup_vault/core/models/device_model.dart';
 import 'package:backup_vault/core/database/app_database.dart';
 
+import 'package:drift/native.dart';
+
 // --- Mocks & Stubs ---
 
 class FakeSettingsDatabase extends SettingsDatabase {
@@ -106,7 +108,7 @@ class FakeNetworkScanner extends NetworkScanner {
 class FakeTransportManager extends TransportManager {
   final StreamController<TransportEvent> _events = StreamController<TransportEvent>.broadcast();
 
-  FakeTransportManager(super.db, super.repo, super.logger);
+  FakeTransportManager(super.db, super.repo, super.logger, super.appDb);
 
   @override
   Stream<TransportEvent> get eventStream => _events.stream;
@@ -206,6 +208,7 @@ void main() {
 
   group('Auto Backup System Tests', () {
     late FakeSettingsDatabase db;
+    late AppDatabase appDb;
     late DeviceRepository deviceRepo;
     late FakeNetworkScanner networkScanner;
     late FakeTransportManager transportManager;
@@ -218,10 +221,11 @@ void main() {
 
     setUp(() {
       db = FakeSettingsDatabase();
-      deviceRepo = DeviceRepository(db);
+      appDb = AppDatabase(executor: NativeDatabase.memory());
+      deviceRepo = DeviceRepository(db, appDb);
       logger = FakeLoggingService();
       networkScanner = FakeNetworkScanner(logger);
-      transportManager = FakeTransportManager(db, deviceRepo, logger);
+      transportManager = FakeTransportManager(db, deviceRepo, logger, appDb);
       backupEngine = FakeBackupEngine(logger);
       queue = SyncQueue();
       selectionManager = DeviceSelectionManager(db);
@@ -246,9 +250,10 @@ void main() {
       );
     });
 
-    tearDown(() {
+    tearDown(() async {
       scheduler.stop();
       manager.dispose();
+      await appDb.close();
     });
 
     test('1. Multi-device topology simulation (Android ↔ Windows ↔ Android)', () async {

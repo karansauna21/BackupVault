@@ -13,6 +13,24 @@ import 'sync_queue.dart';
 import 'sync_session.dart';
 import 'transfer_history.dart';
 
+import '../services/platform_info.dart';
+import '../services/notification_service.dart';
+import '../models/notification_models.dart';
+
+class _StubPlatformInfo implements PlatformInfo {
+  @override String get platformName => 'Stub';
+  @override bool get isWindows => false;
+  @override bool get isAndroid => false;
+  @override bool get isRunningOnBattery => false;
+  @override bool get isCharging => true;
+  @override int get batteryLevel => 100;
+  @override double get systemIdleSeconds => 0.0;
+  @override bool get isFullScreenActive => false;
+  @override double get cpuUsage => 0.0;
+  @override Set<String> getLogicalDrives() => {};
+  @override String getDriveType(String drivePath) => 'Unknown';
+}
+
 class TransferScheduler {
   final SyncQueue queue;
   final TransportManager transportManager;
@@ -20,6 +38,8 @@ class TransferScheduler {
   final LoggingService logger;
   final SettingsDatabase db;
   final NetworkScanner networkScanner;
+  final PlatformInfo platformInfo;
+  final NotificationService? notificationService;
 
   final Map<String, SyncSession> _activeSyncSessions = {};
   final StreamController<Map<String, SyncSession>> _sessionsController =
@@ -28,6 +48,7 @@ class TransferScheduler {
   bool _isProcessing = false;
   bool _shouldStop = false;
   Timer? _scheduleTimer;
+  StreamSubscription<TransportEvent>? _transportEventSubscription;
 
   // Mock overrides for validation & testing constraints
   bool mockCharging = true;
@@ -45,7 +66,9 @@ class TransferScheduler {
     required this.logger,
     required this.db,
     required this.networkScanner,
-  });
+    PlatformInfo? platformInfo,
+    this.notificationService,
+  }) : platformInfo = platformInfo ?? _StubPlatformInfo();
 
   void start() {
     _shouldStop = false;
@@ -53,6 +76,12 @@ class TransferScheduler {
     _scheduleTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       _processQueue();
     });
+
+    _transportEventSubscription?.cancel();
+    _transportEventSubscription = transportManager.eventStream.listen((event) {
+      _handleTransportEvent(event);
+    });
+
     _processQueue(); // Initial trigger
   }
 
@@ -60,6 +89,8 @@ class TransferScheduler {
     _shouldStop = true;
     _scheduleTimer?.cancel();
     _scheduleTimer = null;
+    _transportEventSubscription?.cancel();
+    _transportEventSubscription = null;
   }
 
   SyncSession? getSession(String deviceId) => _activeSyncSessions[deviceId];
@@ -67,13 +98,34 @@ class TransferScheduler {
   List<SyncSession> getSessionsList() => _activeSyncSessions.values.toList();
 
   SyncPolicy getSyncPolicy() {
-    final enabled = db.getValue('auto_backup_enabled') == 'true';
-    final charging = db.getValue('auto_backup_charging_only') == 'true';
-    final wifi = db.getValue('auto_backup_wifi_only') == 'true';
-    final limit =
-        int.tryParse(db.getValue('auto_backup_bandwidth_limit') ?? '0') ?? 0;
-    final retry =
-        int.tryParse(db.getValue('auto_backup_retry_count') ?? '3') ?? 3;
+    // 1. Load defaults/KV values first
+    bool enabled = db.getValue('auto_backup_enabled') == 'true';
+    bool charging = db.getValue('auto_backup_charging_only') == 'true';
+    bool wifi = db.getValue('auto_backup_wifi_only') == 'true';
+    int limit = int.tryParse(db.getValue('auto_backup_bandwidth_limit') ?? '0') ?? 0;
+    int retry = int.tryParse(db.getValue('auto_backup_retry_count') ?? '3') ?? 3;
+    bool batterySaver = true;
+    bool ignoreSmall = false;
+    int ignoreSmallMb = 1;
+    bool bgNotifications = true;
+
+    // 2. Override/read from SettingsState JSON if it exists
+    try {
+      final jsonStr = db.getValue('settings_state');
+      if (jsonStr != null) {
+        final jsonMap = json.decode(jsonStr) as Map<String, dynamic>;
+        final m = jsonMap['monitoring'] as Map<String, dynamic>?;
+        if (m != null) {
+          enabled = m['enableRealtimeMonitoring'] ?? enabled;
+          charging = m['backupOnlyWhileCharging'] ?? charging;
+          wifi = m['backupOnlyOnWifi'] ?? wifi;
+          batterySaver = m['batterySaverCompatible'] ?? batterySaver;
+          ignoreSmall = m['ignoreSmallChanges'] ?? ignoreSmall;
+          ignoreSmallMb = m['ignoreChangesUnderMb'] ?? ignoreSmallMb;
+          bgNotifications = m['enableBackgroundNotifications'] ?? bgNotifications;
+        }
+      }
+    } catch (_) {}
 
     return SyncPolicy(
       autoBackupEnabled: enabled,
@@ -81,6 +133,10 @@ class TransferScheduler {
       backupOnlyOnWifi: wifi,
       bandwidthLimit: limit,
       retryCount: retry,
+      batterySaverCompatible: batterySaver,
+      ignoreSmallChanges: ignoreSmall,
+      ignoreChangesUnderMb: ignoreSmallMb,
+      enableBackgroundNotifications: bgNotifications,
     );
   }
 
@@ -92,7 +148,68 @@ class TransferScheduler {
   }
 
   Future<bool> _checkChargingConstraint() async {
-    return mockCharging;
+    if (platformInfo is _StubPlatformInfo) {
+      return mockCharging;
+    }
+    return platformInfo.isCharging;
+  }
+
+  Future<bool> _checkBatteryConstraint(SyncPolicy policy) async {
+    if (platformInfo is _StubPlatformInfo) {
+      return true; // Bypass in tests
+    }
+    if (platformInfo.isRunningOnBattery) {
+      if (platformInfo.batteryLevel < 20) {
+        logger.warning(
+          'TransferScheduler',
+          'Sync policy: Battery level low (${platformInfo.batteryLevel}%). Postponing sync.',
+        );
+        return false;
+      }
+      if (policy.batterySaverCompatible) {
+        final isPowerSaving = db.getValue('power_saving_mode') == 'true' ||
+            _checkSystemPowerSaver();
+        if (isPowerSaving) {
+          logger.warning(
+            'TransferScheduler',
+            'Sync policy: Battery Saver active. Postponing sync.',
+          );
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  bool _checkSystemPowerSaver() {
+    try {
+      final jsonStr = db.getValue('settings_state');
+      if (jsonStr != null) {
+        final jsonMap = json.decode(jsonStr) as Map<String, dynamic>;
+        final performance = jsonMap['performance'] as Map<String, dynamic>?;
+        if (performance != null && performance['powerSavingMode'] == true) {
+          return true;
+        }
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  Future<void> _handleTransportEvent(TransportEvent event) async {
+    final policy = getSyncPolicy();
+    if (!policy.enableBackgroundNotifications) return;
+
+    if (event.type == TransportEventType.disconnected) {
+      final device = await deviceRepository.getDeviceById(event.deviceId);
+      final deviceName = device?.name ?? 'Remote Device';
+      notificationService?.triggerNotification(
+        priority: NotificationPriority.critical,
+        category: NotificationCategory.watcherStopped,
+        message: 'Connection lost to $deviceName (${event.message ?? "Offline"})',
+        destination: deviceName,
+        status: 'Disconnected',
+      );
+    }
   }
 
   Future<void> _processQueue() async {
@@ -125,6 +242,13 @@ class TransferScheduler {
           'TransferScheduler',
           'Sync policy: Charging required but device is on battery. Postponing sync.',
         );
+        _isProcessing = false;
+        return;
+      }
+
+      // Check Battery/Power Saver constraint
+      final passesBattery = await _checkBatteryConstraint(policy);
+      if (!passesBattery) {
         _isProcessing = false;
         return;
       }
@@ -207,6 +331,18 @@ class TransferScheduler {
         'Sync Started: ${item.filePath} to ${device.name}',
       );
 
+      // Trigger Started Notification
+      if (policy.enableBackgroundNotifications) {
+        notificationService?.triggerNotification(
+          priority: NotificationPriority.information,
+          category: NotificationCategory.backupStarted,
+          message: 'Backup started: ${item.fileName} (${(item.fileSize / (1024 * 1024)).toStringAsFixed(2)} MB) to ${device.name}',
+          source: 'local_device',
+          destination: device.name,
+          status: 'Started',
+        );
+      }
+
       // Run transmission
       final file = File(item.filePath);
       final sourceFolder = file.parent.path;
@@ -233,7 +369,7 @@ class TransferScheduler {
                     currentSpeed: event.speed,
                     etaSeconds: event.speed > 0
                         ? ((item.fileSize - (event.progress * item.fileSize)) /
-                                  event.speed)
+                                   event.speed)
                               .toInt()
                         : 0,
                   );
@@ -280,6 +416,20 @@ class TransferScheduler {
             'Sync Completed: ${item.filePath} successfully synced.',
           );
 
+          // Trigger Completed Notification
+          if (policy.enableBackgroundNotifications) {
+            final durationSec = stopwatch.elapsedMilliseconds / 1000.0;
+            final speedMb = durationSec > 0 ? (item.fileSize / (1024 * 1024)) / durationSec : 0.0;
+            notificationService?.triggerNotification(
+              priority: NotificationPriority.success,
+              category: NotificationCategory.backupCompleted,
+              message: 'Backup completed: ${item.fileName} in ${durationSec.toStringAsFixed(1)}s (${speedMb.toStringAsFixed(2)} MB/s)',
+              source: 'local_device',
+              destination: device.name,
+              status: 'Completed',
+            );
+          }
+
           // Save successful sync metadata
           db.setValue('last_synced_file', item.fileName);
           db.setValue('last_successful_sync', DateTime.now().toIso8601String());
@@ -316,6 +466,18 @@ class TransferScheduler {
             _activeSyncSessions[destDeviceId] = finalSession;
             _sessionsController.add(Map.from(_activeSyncSessions));
           }
+
+          // Trigger Failed Notification
+          if (policy.enableBackgroundNotifications) {
+            notificationService?.triggerNotification(
+              priority: NotificationPriority.error,
+              category: NotificationCategory.backupFailed,
+              message: 'Backup failed: ${item.fileName}. Error: $e',
+              source: 'local_device',
+              destination: device.name,
+              status: 'Failed',
+            );
+          }
         } else {
           logger.warning(
             'TransferScheduler',
@@ -338,6 +500,18 @@ class TransferScheduler {
           if (finalSession != null) {
             _activeSyncSessions[destDeviceId] = finalSession;
             _sessionsController.add(Map.from(_activeSyncSessions));
+          }
+
+          // Trigger Retry Notification
+          if (policy.enableBackgroundNotifications) {
+            notificationService?.triggerNotification(
+              priority: NotificationPriority.warning,
+              category: NotificationCategory.backupFailed,
+              message: 'Retrying backup of ${item.fileName} (attempt ${retries + 1}/${policy.retryCount})',
+              source: 'local_device',
+              destination: device.name,
+              status: 'Retrying',
+            );
           }
         }
 

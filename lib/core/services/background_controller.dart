@@ -14,6 +14,7 @@ import '../../platform/windows/system_tray/system_tray_manager.dart';
 import '../../platform/windows/ui/window_manager.dart';
 import 'background_service.dart';
 import '../../shared/providers/scheduler_provider.dart';
+import '../backup_job/backup_scheduler.dart';
 
 class BackgroundController extends Notifier<BackgroundModuleState> {
   late final BackgroundRepository _repository;
@@ -134,6 +135,9 @@ class BackgroundController extends Notifier<BackgroundModuleState> {
           .read(schedulerJobManagerProvider.notifier)
           .init(schedulerRepo, backupEngine);
       await ref.read(schedulerEngineProvider).init();
+      
+      // Start the backup job scheduler
+      ref.read(backupSchedulerProvider).start();
     } catch (_) {}
 
     if (isWindows && initialStartupState.restorePreviousSession) {

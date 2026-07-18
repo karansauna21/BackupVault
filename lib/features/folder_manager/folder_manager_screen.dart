@@ -77,26 +77,88 @@ class _FolderManagerScreenState extends ConsumerState<FolderManagerScreen> {
                 )
               : null,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.sync_rounded),
-              tooltip: 'Scan & Validate All Folders',
-              onPressed: () => controller.scanAllFolders(),
-            ),
-            IconButton(
-              icon: const Icon(Icons.file_download_rounded),
-              tooltip: 'Import Configurations',
-              onPressed: () => _handleImport(context, controller),
-            ),
-            if (selectedIds.isNotEmpty) ...[
+            if (!isMobile) ...[
               IconButton(
-                icon: const Icon(Icons.file_upload_rounded),
-                tooltip: 'Export Selected Configs',
-                onPressed: () => _handleExport(context, controller, selectedIds.toList()),
+                icon: const Icon(Icons.sync_rounded),
+                tooltip: 'Scan & Validate All Folders',
+                onPressed: () => controller.scanAllFolders(),
               ),
               IconButton(
-                icon: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent),
-                tooltip: 'Delete Selected',
-                onPressed: () => _showBulkDeleteConfirmation(context, controller, selectedIds.toList()),
+                icon: const Icon(Icons.file_download_rounded),
+                tooltip: 'Import Configurations',
+                onPressed: () => _handleImport(context, controller),
+              ),
+              if (selectedIds.isNotEmpty) ...[
+                IconButton(
+                  icon: const Icon(Icons.file_upload_rounded),
+                  tooltip: 'Export Selected Configs',
+                  onPressed: () => _handleExport(context, controller, selectedIds.toList()),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent),
+                  tooltip: 'Delete Selected',
+                  onPressed: () => _showBulkDeleteConfirmation(context, controller, selectedIds.toList()),
+                ),
+              ],
+            ] else ...[
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert_rounded),
+                tooltip: 'Folder Options',
+                onSelected: (value) {
+                  if (value == 'sync') {
+                    controller.scanAllFolders();
+                  } else if (value == 'import') {
+                    _handleImport(context, controller);
+                  } else if (value == 'export') {
+                    _handleExport(context, controller, selectedIds.toList());
+                  } else if (value == 'delete') {
+                    _showBulkDeleteConfirmation(context, controller, selectedIds.toList());
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'sync',
+                    child: Row(
+                      children: [
+                        Icon(Icons.sync_rounded),
+                        SizedBox(width: 8),
+                        Text('Scan & Validate'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'import',
+                    child: Row(
+                      children: [
+                        Icon(Icons.file_download_rounded),
+                        SizedBox(width: 8),
+                        Text('Import Configs'),
+                      ],
+                    ),
+                  ),
+                  if (selectedIds.isNotEmpty) ...[
+                    const PopupMenuItem(
+                      value: 'export',
+                      child: Row(
+                        children: [
+                          Icon(Icons.file_upload_rounded),
+                          SizedBox(width: 8),
+                          Text('Export Selected'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_sweep_rounded, color: Colors.redAccent),
+                          SizedBox(width: 8),
+                          Text('Delete Selected', style: TextStyle(color: Colors.redAccent)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ],
             const SizedBox(width: 8),
@@ -284,7 +346,7 @@ class _FolderManagerScreenState extends ConsumerState<FolderManagerScreen> {
 
                   if (isMobile) {
                     return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.only(left: 12, right: 12, top: 8, bottom: 88),
                       itemCount: folders.length,
                       itemBuilder: (context, index) {
                         final folder = folders[index];
@@ -395,6 +457,11 @@ class _FolderManagerScreenState extends ConsumerState<FolderManagerScreen> {
         destinationPath: result['destinationPath'],
         interval: result['interval'],
         rules: result['rules'] ?? const FolderRules(),
+        destinationType: result['destinationType'],
+        deviceUuid: result['deviceUuid'],
+        deviceName: result['deviceName'],
+        remoteFolderId: result['remoteFolderId'],
+        remoteFolderPath: result['remoteFolderPath'],
       );
     }
   }
@@ -421,6 +488,11 @@ class _FolderManagerScreenState extends ConsumerState<FolderManagerScreen> {
         destinationPath: result['destinationPath'],
         interval: result['interval'],
         rules: result['rules'],
+        destinationType: result['destinationType'],
+        deviceUuid: result['deviceUuid'],
+        deviceName: result['deviceName'],
+        remoteFolderId: result['remoteFolderId'],
+        remoteFolderPath: result['remoteFolderPath'],
       );
     }
   }

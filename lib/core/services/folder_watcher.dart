@@ -6,13 +6,14 @@ import 'logging_service.dart';
 
 class FolderWatcher {
   final Map<int, StreamSubscription<FileSystemEvent>> _subscriptions = {};
+  final Map<int, Map<String, StreamSubscription<FileSystemEvent>>> _androidFolderSubscriptions = {};
   final LoggingService _logger;
 
   FolderWatcher(this._logger);
 
   void startWatching(BackupFolder folder, void Function(FileSystemEvent event, BackupFolder folder) onEvent) async {
     final folderId = folder.id;
-    if (_subscriptions.containsKey(folderId)) {
+    if (isWatching(folderId)) {
       stopWatching(folderId);
     }
 
@@ -27,28 +28,94 @@ class FolderWatcher {
 
     await _logger.info('FolderWatcher', 'Starting real-time monitoring for: ${folder.sourcePath}');
 
+    if (Platform.isWindows) {
+      try {
+        final subscription = directory.watch(recursive: true).listen(
+          (event) {
+            onEvent(event, folder);
+          },
+          onError: (error) {
+            _logger.error('FolderWatcher', 'Error in stream for folder ${folder.name}: $error');
+          },
+        );
+
+        _subscriptions[folderId] = subscription;
+      } catch (e) {
+        await _logger.error('FolderWatcher', 'Failed to start watching "${folder.name}": $e');
+      }
+    } else {
+      final subMap = <String, StreamSubscription<FileSystemEvent>>{};
+      _androidFolderSubscriptions[folderId] = subMap;
+      _watchDirectoryAndroid(folderId, folder.sourcePath, folder, onEvent, subMap);
+    }
+  }
+
+  void _watchDirectoryAndroid(
+    int folderId,
+    String dirPath,
+    BackupFolder folder,
+    void Function(FileSystemEvent event, BackupFolder folder) onEvent,
+    Map<String, StreamSubscription<FileSystemEvent>> subMap,
+  ) {
+    final dir = Directory(dirPath);
+    if (!dir.existsSync()) return;
+
     try {
-      final subscription = directory.watch(recursive: true).listen(
+      final sub = dir.watch(recursive: false).listen(
         (event) {
-          // Skip temporary/hidden files if necessary, but pass through main events
           onEvent(event, folder);
+
+          if (event.isDirectory) {
+            if (event.type == FileSystemEvent.create) {
+              _watchDirectoryAndroid(folderId, event.path, folder, onEvent, subMap);
+            } else if (event.type == FileSystemEvent.delete) {
+              _unwatchDirectoryAndroid(folderId, event.path, subMap);
+            }
+          }
         },
-        onError: (error) {
-          _logger.error('FolderWatcher', 'Error in stream for folder ${folder.name}: $error');
+        onError: (err) {
+          _unwatchDirectoryAndroid(folderId, dirPath, subMap);
         },
       );
+      subMap[dirPath] = sub;
 
-      _subscriptions[folderId] = subscription;
-    } catch (e) {
-      await _logger.error('FolderWatcher', 'Failed to start watching "${folder.name}": $e');
+      dir.listSync(recursive: false, followLinks: false).forEach((entity) {
+        if (entity is Directory) {
+          _watchDirectoryAndroid(folderId, entity.path, folder, onEvent, subMap);
+        }
+      });
+    } catch (_) {}
+  }
+
+  void _unwatchDirectoryAndroid(
+    int folderId,
+    String dirPath,
+    Map<String, StreamSubscription<FileSystemEvent>> subMap,
+  ) {
+    final keysToRemove = subMap.keys
+        .where((k) => k == dirPath || k.startsWith('$dirPath/'))
+        .toList();
+    for (final key in keysToRemove) {
+      subMap[key]?.cancel();
+      subMap.remove(key);
     }
   }
 
   void stopWatching(int folderId) {
-    final subscription = _subscriptions.remove(folderId);
-    if (subscription != null) {
-      subscription.cancel();
-      _logger.info('FolderWatcher', 'Stopped monitoring for folder ID: $folderId');
+    if (Platform.isWindows) {
+      final subscription = _subscriptions.remove(folderId);
+      if (subscription != null) {
+        subscription.cancel();
+        _logger.info('FolderWatcher', 'Stopped monitoring for folder ID: $folderId');
+      }
+    } else {
+      final subMap = _androidFolderSubscriptions.remove(folderId);
+      if (subMap != null) {
+        for (final sub in subMap.values) {
+          sub.cancel();
+        }
+        _logger.info('FolderWatcher', 'Stopped monitoring for folder ID: $folderId');
+      }
     }
   }
 
@@ -56,10 +123,13 @@ class FolderWatcher {
     for (final id in _subscriptions.keys.toList()) {
       stopWatching(id);
     }
+    for (final id in _androidFolderSubscriptions.keys.toList()) {
+      stopWatching(id);
+    }
   }
 
   bool isWatching(int folderId) {
-    return _subscriptions.containsKey(folderId);
+    return _subscriptions.containsKey(folderId) || _androidFolderSubscriptions.containsKey(folderId);
   }
 }
 
